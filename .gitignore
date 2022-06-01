@@ -1,2 +1,4 @@
 /bin/
 /target/
+/ignorables.txt
+/content.xml
