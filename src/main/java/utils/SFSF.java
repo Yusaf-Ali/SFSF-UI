@@ -16,9 +16,9 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 public class SFSF {
-	private DefaultConfiguration config;
+	private Configuration config;
 
-	public SFSF(DefaultConfiguration config) {
+	public SFSF(Configuration config) {
 		this.config = config;
 	}
 
