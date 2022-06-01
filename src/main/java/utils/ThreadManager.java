@@ -2,12 +2,22 @@ package utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+/**
+ * Might be overkill
+ * 
+ * @author yali
+ *
+ */
 public class ThreadManager {
 	/*
 	 * Local thread list that stores all runners.
 	 */
 	private static List<Thread> runners = new ArrayList<>();
+	private static List<ExecutorService> services = new ArrayList<>();
 
 	/**
 	 * Create list of threads and use this method to start running them at a
@@ -19,13 +29,17 @@ public class ThreadManager {
 	 * @param threadList List of threads to be executed
 	 * @param interval   Duration of gaps between running next thread
 	 */
-	public static void runTasks(List<Thread> threadList, int interval) {
+	public static void runTasks(List<Thread> threadList, int interval, List<Thread> murderableThreadsList) {
 		Thread runner = new Thread() {
 			public void run() {
+				ExecutorService se = Executors.newFixedThreadPool(4);
+				services.add(se);
+				List<CompletableFuture<?>> futures = new ArrayList<>();
 				threadList.forEach(thread -> {
 					if (Thread.currentThread().isInterrupted()) {
 						return;
 					}
+					CompletableFuture<Void> future = CompletableFuture.runAsync(thread, se);
 					try {
 						Thread.sleep(interval);
 					} catch (InterruptedException e) {
@@ -34,12 +48,18 @@ public class ThreadManager {
 						Thread.currentThread().interrupt();
 						return;
 					}
-					thread.start();
+					futures.add(future);
+				});
+				System.out.println("Started all threads");
+				CompletableFuture<?> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
+				all.thenAccept((unknownVariable) -> {
+					System.out.println("All ended now murdering threads");
+					murderableThreadsList.removeAll(threadList);
 				});
 			};
 		};
-		runners.add(runner);
 		runner.start();
+		runners.add(runner);
 	}
 
 	/**
@@ -47,6 +67,9 @@ public class ThreadManager {
 	 */
 	public static void shutdown() {
 		System.out.println("Shutdown requested");
+		services.forEach(se -> {
+			se.shutdown();
+		});
 		runners.forEach(runner -> {
 			runner.interrupt();
 		});
