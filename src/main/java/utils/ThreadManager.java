@@ -7,7 +7,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Might be overkill
+ * Might be overkill.<br>
+ * Executes operations in another thread and also provide a way to correctly
+ * stop threads.<br>
+ * This also uses a single ExecutorService made of 4 threads. So if there are
+ * multiple calls to
+ * {@link #runTasks(threadList, interval, murderableThreadsList)}, new threads
+ * will run after previous threads.
  * 
  * @author yali
  *
@@ -17,7 +23,7 @@ public class ThreadManager {
 	 * Local thread list that stores all runners.
 	 */
 	private static List<Thread> runners = new ArrayList<>();
-	private static List<ExecutorService> services = new ArrayList<>();
+	private static ExecutorService service = Executors.newFixedThreadPool(4);
 
 	/**
 	 * Create list of threads and use this method to start running them at a
@@ -32,14 +38,12 @@ public class ThreadManager {
 	public static void runTasks(List<Thread> threadList, int interval, List<Thread> murderableThreadsList) {
 		Thread runner = new Thread() {
 			public void run() {
-				ExecutorService se = Executors.newFixedThreadPool(4);
-				services.add(se);
 				List<CompletableFuture<?>> futures = new ArrayList<>();
 				threadList.forEach(thread -> {
 					if (Thread.currentThread().isInterrupted()) {
 						return;
 					}
-					CompletableFuture<Void> future = CompletableFuture.runAsync(thread, se);
+					CompletableFuture<Void> future = CompletableFuture.runAsync(thread, service);
 					try {
 						Thread.sleep(interval);
 					} catch (InterruptedException e) {
@@ -67,9 +71,7 @@ public class ThreadManager {
 	 */
 	public static void shutdown() {
 		System.out.println("Shutdown requested");
-		services.forEach(se -> {
-			se.shutdown();
-		});
+		service.shutdown();
 		runners.forEach(runner -> {
 			runner.interrupt();
 		});
