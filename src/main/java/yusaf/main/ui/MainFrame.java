@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -22,24 +23,105 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.scene.Scene;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.input.MouseButton;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import utils.DefaultConfiguration;
 import utils.SFSF;
 import utils.ThreadManager;
+import yusaf.main.ui.EntityListView.EntityInformation;
 
 public class MainFrame extends Application {
 	private static Scene scene;
 	private static List<Thread> threadList = new ArrayList<>();
 	private static List<String> ignorables = new ArrayList<>();
+	private static ProgressBar progressBar = new ProgressBar();
 
 	@Override
-	public void start(Stage primaryStage) throws Exception {
-		primaryStage.setTitle("SFSF UI");
-		primaryStage.setScene(scene);
-//		primaryStage.setScene(loginScene);
-		primaryStage.setOnCloseRequest(x -> onClose());
-		primaryStage.show();
+	public void start(Stage stage) throws Exception {
+		DefaultConfiguration config = new DefaultConfiguration();
+		SFSF sfsf = new SFSF(config);
+		populateIgnorables();
+		try {
+//			String content = meta.read(config.baseUrl);
+//			writeToFile(content);
+//			String content = readFromFile();
+
+			progressBar.setProgress(0);
+			InputStream is = new FileInputStream("content.xml");
+			Document doc = getDocument(is);
+			List<String> entities = getEntityListFromFile(doc);
+			progressBar.setProgress(1);
+
+			EntityListView entityList = new EntityListView();
+			entityList.setSFSF(sfsf);
+			entityList.setRefreshEventHandler(new CustomEventHandler(entityList, sfsf));
+			entityList.createEntityTableViewFromList(entities, event -> {
+				if (event.getButton() == MouseButton.PRIMARY) {
+					Thread t = new Thread() {
+						@Override
+						public void run() {
+							EntityInformation selected = entityList.getTable().getSelectionModel().getSelectedItem();
+							System.out.println(selected.getName() + "\t" + selected.getCount());
+							String response = sfsf.getEntityRecords(selected.getName());
+							if (response == null || response.equals("null")) {
+								System.err.println("Error response for " + selected.getName());
+								System.err.println(response);
+								return;
+							}
+
+							List<Map<String, String>> list = SFSF.getResultsFromJson(response);
+							Platform.runLater(new Runnable() {
+								@Override
+								public void run() {
+									entityList.populateDetailTable(list);
+								}
+							});
+						}
+					};
+					t.start();
+				}
+			});
+			progressBar.setProgress(0);
+			entityList.createEmptyDetailTable();
+			MainFrame.scene = entityList.createSceneWithDetailView(entityList.getTable(), progressBar);
+			entityList.getTable().prefHeightProperty().bind(stage.heightProperty());
+			entityList.getTable().prefWidthProperty().bind(stage.widthProperty().multiply(0.25));
+			entityList.getDetailTable().prefHeightProperty().bind(stage.heightProperty());
+			entityList.getDetailTable().prefWidthProperty().bind(stage.widthProperty().multiply(0.75));
+			progressBar.setProgress(1);
+
+			List<Thread> nonregisteredThreads = createTaskThreads(entityList, sfsf, true);
+			threadList.addAll(nonregisteredThreads);
+
+			System.out.println("Sending requests");
+			// Run 20 threads in one second, gap evaluates to 1000 / 20 = 50;
+			ThreadManager.runTasks(nonregisteredThreads, 1000 / 20, threadList);
+
+			stage.setTitle("SFSF UI");
+			stage.setScene(scene);
+			stage.setMinHeight(720);
+			stage.setMinWidth(Screen.getPrimary().getBounds().getWidth() / 2);
+			stage.setWidth(Screen.getPrimary().getBounds().getWidth() - 200);
+			stage.setHeight(Screen.getPrimary().getBounds().getHeight() - 100);
+//			stage.setX(200 / 2);
+//			stage.setY((Screen.getPrimary().getBounds().getHeight() - 720) / 2);
+			stage.centerOnScreen();
+//		stage.setScene(loginScene);
+			stage.setOnCloseRequest(x -> onClose());
+			stage.show();
+		} catch (SAXException | ParserConfigurationException e) {
+			System.err.println("SAX error: " + e.getMessage());
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void onClose() {
@@ -52,65 +134,12 @@ public class MainFrame extends Application {
 		}
 	}
 
+	public static ProgressBar getProgressBar() {
+		return progressBar;
+	}
+
 	public static void main(String[] args) {
-		DefaultConfiguration config = new DefaultConfiguration();
-		SFSF sfsf = new SFSF(config);
-		populateIgnorables();
-		try {
-//			String content = meta.read(config.baseUrl);
-//			writeToFile(content);
-//			String content = readFromFile();
-			InputStream is = new FileInputStream("content.xml");
-			Document doc = getDocument(is);
-			List<String> entities = getEntityListFromFile(doc);
-
-			EntityListView entityList = new EntityListView();
-			entityList.createEntityTableViewFromList(entities);
-			entityList.createEmptyDetailTable();
-			MainFrame.scene = entityList.createSceneWithDetailView(entityList.getTable());
-
-			List<Thread> registeredThreads = new ArrayList<>();
-			entityList.getTable().getItems().forEach(item -> {
-				// Avoid proceeding if the thread is interrupted
-				if (Thread.currentThread().isInterrupted())
-					return;
-				if (ignorables.contains(item.getName())) {
-					item.setCount("Ignored");
-					entityList.getTable().refresh();
-					return;
-				}
-				Thread registeredThread = new Thread(() -> {
-					item.setCount("Retrieving...");
-					String content = sfsf.getEntityCount(item.getName());
-					entityList.getTable().refresh();
-					try {
-						// Try parsing the value if possible
-						Integer.valueOf(content);
-						item.setCount(content);
-					} catch (NumberFormatException nfe) {
-						if (content != null)
-							item.setCount(content);
-						else
-							item.setCount("N/A");
-						addInIgnorables(item.getName());
-					}
-					entityList.getTable().refresh();
-				});
-				registeredThreads.add(registeredThread);
-			});
-			System.out.println("Sending requests");
-			threadList.addAll(registeredThreads);
-			// Run 20 threads in one second, gap evaluates to 1000 / 20 = 50;
-			ThreadManager.runTasks(registeredThreads, 1000 / 20);
-
-			MainFrame.launch();
-		} catch (SAXException | ParserConfigurationException e) {
-			System.err.println("SAX error: " + e.getMessage());
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		MainFrame.launch();
 	}
 
 	private static PrintWriter pw;
@@ -155,5 +184,55 @@ public class MainFrame extends Application {
 			entities.add(item.getTextContent());
 		}
 		return entities;
+	}
+
+	private static List<Thread> createTaskThreads(EntityListView entityList, SFSF sfsf, boolean shouldIgnore) {
+		List<Thread> registeredThreads = new ArrayList<>();
+		entityList.getTable().getItems().forEach(item -> {
+			// Avoid proceeding if the thread is interrupted
+			if (Thread.currentThread().isInterrupted())
+				return;
+			if (shouldIgnore && ignorables.contains(item.getName())) {
+				item.setCount("Ignored");
+				entityList.getTable().refresh();
+				return;
+			}
+			Thread registeredThread = new Thread(() -> {
+				item.setCount("Retrieving...");
+				String content = sfsf.getEntityCount(item.getName());
+				entityList.getTable().refresh();
+				try {
+					// Try parsing the value if possible
+					Integer.valueOf(content);
+					item.setCount(content);
+				} catch (NumberFormatException nfe) {
+					if (content != null)
+						item.setCount(content);
+					else
+						item.setCount("N/A");
+					addInIgnorables(item.getName());
+				}
+				entityList.getTable().refresh();
+			});
+			registeredThreads.add(registeredThread);
+		});
+		return registeredThreads;
+	}
+
+	private static class CustomEventHandler implements EventHandler<ActionEvent> {
+		private EntityListView entityList;
+		private SFSF sfsf;
+
+		public CustomEventHandler(EntityListView entityList, SFSF sfsf) {
+			this.entityList = entityList;
+			this.sfsf = sfsf;
+		}
+
+		@Override
+		public void handle(ActionEvent event) {
+			List<Thread> nonregisteredThreads = createTaskThreads(entityList, sfsf, false);
+			threadList.addAll(nonregisteredThreads);
+			ThreadManager.runTasks(nonregisteredThreads, 1000 / 20, threadList);
+		}
 	}
 }

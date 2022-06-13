@@ -1,7 +1,10 @@
 module mainapp {
 	requires transitive javafx.graphics;
-	requires javafx.controls;
+	requires transitive javafx.controls;
 	requires java.xml;
-	
+	requires com.fasterxml.jackson.databind;
+
+	exports utils;
 	exports yusaf.main.ui;
+	exports yusaf.main.ui.components;
 }

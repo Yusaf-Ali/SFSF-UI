@@ -6,6 +6,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javafx.scene.control.ProgressBar;
+import yusaf.main.ui.MainFrame;
+
 /**
  * Might be overkill.<br>
  * Executes operations in another thread and also provide a way to correctly
@@ -23,7 +26,7 @@ public class ThreadManager {
 	 * Local thread list that stores all runners.
 	 */
 	private static List<Thread> runners = new ArrayList<>();
-	private static ExecutorService service = Executors.newFixedThreadPool(4);
+	private static ExecutorService service = Executors.newFixedThreadPool(12);
 
 	/**
 	 * Create list of threads and use this method to start running them at a
@@ -39,11 +42,22 @@ public class ThreadManager {
 		Thread runner = new Thread() {
 			public void run() {
 				List<CompletableFuture<?>> futures = new ArrayList<>();
+				double singleItemWeight = 1.0 / threadList.size();
+				ProgressBar progressBar = MainFrame.getProgressBar();
+				progressBar.setProgress(0);
+				progressBar.setVisible(true);
+				System.out.println("Starting all threads");
 				threadList.forEach(thread -> {
 					if (Thread.currentThread().isInterrupted()) {
 						return;
 					}
 					CompletableFuture<Void> future = CompletableFuture.runAsync(thread, service);
+					future.whenCompleteAsync((o, throwable) -> {
+						if (throwable != null) {
+							return;
+						}
+						progressBar.setProgress(singleItemWeight + progressBar.getProgress());
+					});
 					try {
 						Thread.sleep(interval);
 					} catch (InterruptedException e) {
@@ -54,11 +68,11 @@ public class ThreadManager {
 					}
 					futures.add(future);
 				});
-				System.out.println("Started all threads");
 				CompletableFuture<?> all = CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0]));
 				all.thenAccept((unknownVariable) -> {
 					System.out.println("All ended now murdering threads");
 					murderableThreadsList.removeAll(threadList);
+					progressBar.setVisible(false);
 				});
 			};
 		};
