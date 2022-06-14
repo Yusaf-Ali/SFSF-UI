@@ -26,7 +26,7 @@ public class ThreadManager {
 	 * Local thread list that stores all runners.
 	 */
 	private static List<Thread> runners = new ArrayList<>();
-	private static ExecutorService service = Executors.newFixedThreadPool(12);
+	private static ExecutorService service = Executors.newFixedThreadPool(20);
 
 	/**
 	 * Create list of threads and use this method to start running them at a
@@ -54,9 +54,12 @@ public class ThreadManager {
 					CompletableFuture<Void> future = CompletableFuture.runAsync(thread, service);
 					future.whenCompleteAsync((o, throwable) -> {
 						if (throwable != null) {
+							throwable.printStackTrace();
+							System.out.println(throwable.getMessage());
 							return;
 						}
-						progressBar.setProgress(singleItemWeight + progressBar.getProgress());
+						updateProgress(progressBar, singleItemWeight);
+						return;
 					});
 					try {
 						Thread.sleep(interval);
@@ -73,11 +76,16 @@ public class ThreadManager {
 					System.out.println("All ended now murdering threads");
 					murderableThreadsList.removeAll(threadList);
 					progressBar.setVisible(false);
+					progressBar.setProgress(0);
 				});
 			};
 		};
 		runner.start();
 		runners.add(runner);
+	}
+
+	private static synchronized void updateProgress(ProgressBar progressBar, double singleItemWeight) {
+		progressBar.setProgress(singleItemWeight + progressBar.getProgress());
 	}
 
 	/**

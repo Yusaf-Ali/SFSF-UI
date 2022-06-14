@@ -49,14 +49,18 @@ public class EntityListTableContextMenu {
 								Node node = properties.item(index);
 								Node attrFilterable = node.getAttributes().getNamedItem("sap:filterable");
 								boolean isFilterable = attrFilterable.getTextContent().equalsIgnoreCase("true");
+								Node attrName = node.getAttributes().getNamedItem("Name");
 								if (isFilterable) {
-									Node attrName = node.getAttributes().getNamedItem("Name");
 									fields.add(attrName.getTextContent());
+								} else {
+									s.getIgnorables().add(attrName.getTextContent());
 								}
 							}
 							pb.setProgress(0.7);
 							Platform.runLater(() -> {
-								EntityFieldSelect popup = new EntityFieldSelect(fields);
+								EntityFieldSelect popup = new EntityFieldSelect(fields, () -> {
+									return null;
+								});
 								popup.show();
 								pb.setProgress(1);
 								pb.setVisible(false);

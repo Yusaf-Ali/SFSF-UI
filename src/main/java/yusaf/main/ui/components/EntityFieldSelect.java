@@ -1,6 +1,7 @@
 package yusaf.main.ui.components;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -19,7 +20,7 @@ import javafx.stage.Stage;
 public class EntityFieldSelect {
 	private Stage window;
 
-	public EntityFieldSelect(List<String> fields) {
+	public EntityFieldSelect(List<String> fields, Callable<Void> callable) {
 		window = new Stage();
 		window.setMinHeight(500);
 		window.setMinWidth(500);
@@ -33,6 +34,8 @@ public class EntityFieldSelect {
 
 		Button selectAll = new Button("Select All");
 		Button clearAll = new Button("Clear All");
+		Button saveButton = new Button("Save");
+		Button cancelButton = new Button("Cancel");
 
 		TableView<EntityFieldSelectItem> table = new TableView<>();
 		TableColumn<EntityFieldSelectItem, Boolean> checkColumn = new TableColumn<>("Fetchable");
@@ -52,20 +55,34 @@ public class EntityFieldSelect {
 
 		selectAll.setOnAction((e) -> {
 			table.getItems().forEach(item -> {
-				item.fetchable.setValue(true);
+				item.fetchable.set(true);
 			});
 			table.refresh();
 		});
 
 		clearAll.setOnAction((e) -> {
 			table.getItems().forEach(item -> {
-				item.fetchable.setValue(false);
+				item.fetchable.set(false);
 			});
 			table.refresh();
 		});
 
+		saveButton.setOnAction((e) -> {
+			try {
+				callable.call();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			window.close();
+		});
+
+		cancelButton.setOnAction((e) -> {
+			window.close();
+		});
+
 		HBox buttons = new HBox(selectAll, clearAll);
-		VBox box = new VBox(buttons, table);
+		HBox footer = new HBox(saveButton, cancelButton);
+		VBox box = new VBox(buttons, table, footer);
 
 		Scene scene = new Scene(box);
 		window.setScene(scene);
@@ -84,12 +101,16 @@ public class EntityFieldSelect {
 			;
 		}
 
-		public void setFetchable(BooleanProperty fetchable) {
-			this.fetchable = fetchable;
+		public BooleanProperty fetchableProperty() {
+			return fetchable;
 		}
 
-		public BooleanProperty getFetchable() {
-			return fetchable;
+		public void setFetchable(boolean fetchable) {
+			this.fetchable.set(fetchable);
+		}
+
+		public boolean isFetchable() {
+			return this.fetchable.get();
 		}
 
 		public void setFieldName(String fieldName) {

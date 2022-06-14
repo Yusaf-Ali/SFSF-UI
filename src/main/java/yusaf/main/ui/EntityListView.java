@@ -1,5 +1,6 @@
 package yusaf.main.ui;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +31,8 @@ import yusaf.main.ui.components.EntityListTableContextMenu;
 public class EntityListView {
 	private TableView<EntityInformation> table;
 	private TableView<DynamicRow> detailTable;
-	private EventHandler<ActionEvent> eventHandler;
+	private EventHandler<ActionEvent> refreshEventHandler;
+	private EventHandler<ActionEvent> clearEventHandler;
 	private SFSF sfsf;
 
 	public void setSFSF(SFSF sfsf) {
@@ -38,7 +40,11 @@ public class EntityListView {
 	}
 
 	public void setRefreshEventHandler(EventHandler<ActionEvent> eventHandler) {
-		this.eventHandler = eventHandler;
+		this.refreshEventHandler = eventHandler;
+	}
+
+	public void setClearEventHandler(EventHandler<ActionEvent> eventHandler) {
+		this.clearEventHandler = eventHandler;
 	}
 
 	public TableView<EntityInformation> createEntityTableViewFromList(List<String> entities,
@@ -47,13 +53,11 @@ public class EntityListView {
 		TableColumn<EntityInformation, String> cCount = new TableColumn<>("Entity count");
 		EntityListTableContextMenu contextMenu = new EntityListTableContextMenu(sfsf, this);
 
-		// TODO set better heights and widths
 		cName.setCellValueFactory(new PropertyValueFactory<>("name"));
 		cCount.setCellValueFactory(new PropertyValueFactory<>("count"));
 
 		ObservableList<EntityInformation> list = FXCollections.observableArrayList();
 		table = new TableView<>();
-//		table.setMinWidth(500);
 		table.setItems(list);
 		// Set columns
 		table.getColumns().add(cName);
@@ -74,7 +78,6 @@ public class EntityListView {
 		});
 
 		table.setContextMenu(contextMenu.getMenu());
-
 		return table;
 	}
 
@@ -93,15 +96,18 @@ public class EntityListView {
 		sortableFilteredList.comparatorProperty().bind(table.comparatorProperty());
 		table.setItems(sortableFilteredList);
 
+		Button clearIgnorables = new Button("Clear Ignorables");
+		clearIgnorables.setOnAction(clearEventHandler);
+
 		Button refreshButton = new Button("Refresh");
-		refreshButton.setOnAction(eventHandler);
+		refreshButton.setOnAction(refreshEventHandler);
 
 		HBox topBar = null;
 		if (progressBar == null) {
-			topBar = new HBox(searchBar, refreshButton);
+			topBar = new HBox(searchBar, refreshButton, clearIgnorables);
 		} else {
-			topBar = new HBox(searchBar, refreshButton, progressBar);
-			progressBar.setMinHeight(topBar.getHeight());
+			topBar = new HBox(searchBar, refreshButton, clearIgnorables, progressBar);
+			progressBar.prefHeightProperty().bind(topBar.heightProperty());
 		}
 
 		VBox box = new VBox(topBar, table);
@@ -141,7 +147,9 @@ public class EntityListView {
 	public static class EntityInformation {
 		private String name;
 		private String count;
-		private List<String> ignoredFields;
+		private List<String> allFields = new ArrayList<>();
+		private List<String> ignoredFields = new ArrayList<>();
+		private boolean numeric;
 
 		public EntityInformation(String name, String count) {
 			this.name = name;
@@ -162,6 +170,22 @@ public class EntityListView {
 
 		public void setCount(String count) {
 			this.count = count;
+		}
+
+		public List<String> getAllFields() {
+			return allFields;
+		}
+
+		public List<String> getIgnorables() {
+			return ignoredFields;
+		}
+
+		public void setNumeric(boolean is) {
+			this.numeric = is;
+		}
+
+		public boolean isNumeric() {
+			return numeric;
 		}
 
 		@Override
@@ -216,12 +240,3 @@ public class EntityListView {
 		}
 	}
 }
-
-/*
- * 
- * The class Person must be declared public. PropertyValueFactory uses the
- * constructor argument, "firstName", to assume that Person has a public method
- * firstNameProperty with no formal parameters and a return type of
- * ObservableValue<String>.
- * 
- */

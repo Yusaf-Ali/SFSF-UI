@@ -1,18 +1,13 @@
 package yusaf.main.ui;
 
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -32,21 +27,22 @@ import javafx.scene.input.MouseButton;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import utils.DefaultConfiguration;
+import utils.IgnorableEntityHandler;
 import utils.SFSF;
 import utils.ThreadManager;
+import utils.Utils;
 import yusaf.main.ui.EntityListView.EntityInformation;
 
 public class MainFrame extends Application {
 	private static Scene scene;
 	private static List<Thread> threadList = new ArrayList<>();
-	private static List<String> ignorables = new ArrayList<>();
 	private static ProgressBar progressBar = new ProgressBar();
 
 	@Override
 	public void start(Stage stage) throws Exception {
 		DefaultConfiguration config = new DefaultConfiguration();
 		SFSF sfsf = new SFSF(config);
-		populateIgnorables();
+		IgnorableEntityHandler.readIgnorables();
 		try {
 //			String content = meta.read(config.baseUrl);
 //			writeToFile(content);
@@ -61,12 +57,23 @@ public class MainFrame extends Application {
 			EntityListView entityList = new EntityListView();
 			entityList.setSFSF(sfsf);
 			entityList.setRefreshEventHandler(new CustomEventHandler(entityList, sfsf));
+			entityList.setClearEventHandler((e) -> {
+				entityList.getTable().getItems().forEach(item -> {
+					if (item.getCount().equalsIgnoreCase("Ignored")) {
+						item.setCount("N/A");
+						entityList.getTable().refresh();
+					}
+				});
+				IgnorableEntityHandler.removeFromIgnorables(entityList.getTable().getItems(), false);
+			});
 			entityList.createEntityTableViewFromList(entities, event -> {
 				if (event.getButton() == MouseButton.PRIMARY) {
 					Thread t = new Thread() {
 						@Override
 						public void run() {
 							EntityInformation selected = entityList.getTable().getSelectionModel().getSelectedItem();
+							if (selected == null)
+								return;
 							System.out.println(selected.getName() + "\t" + selected.getCount());
 							String response = sfsf.getEntityRecords(selected.getName());
 							if (response == null || response.equals("null")) {
@@ -130,8 +137,10 @@ public class MainFrame extends Application {
 			thread.interrupt();
 		});
 		if (pw != null) {
+			pw.flush();
 			pw.close();
 		}
+		System.exit(0);
 	}
 
 	public static ProgressBar getProgressBar() {
@@ -143,32 +152,6 @@ public class MainFrame extends Application {
 	}
 
 	private static PrintWriter pw;
-
-	public static void addInIgnorables(String name) {
-		try {
-			File file = new File("ignorables.txt");
-			if (!file.exists()) {
-				file.createNewFile();
-			}
-			if (pw == null) {
-				pw = new PrintWriter(new FileWriter("ignorables.txt", true));
-			}
-			pw.append(name + "\n");
-			pw.flush();
-		} catch (Exception e) {
-			System.err.println("Unable to update ignorables list " + name);
-		}
-	};
-
-	public static void populateIgnorables() {
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader("ignorables.txt"));
-			ignorables = reader.lines().collect(Collectors.toList());
-			reader.close();
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-		}
-	}
 
 	private static Document getDocument(InputStream source)
 			throws SAXException, IOException, ParserConfigurationException {
@@ -192,25 +175,24 @@ public class MainFrame extends Application {
 			// Avoid proceeding if the thread is interrupted
 			if (Thread.currentThread().isInterrupted())
 				return;
-			if (shouldIgnore && ignorables.contains(item.getName())) {
+			if (shouldIgnore && IgnorableEntityHandler.ignorables().contains(item.getName())) {
 				item.setCount("Ignored");
 				entityList.getTable().refresh();
 				return;
 			}
 			Thread registeredThread = new Thread(() -> {
 				item.setCount("Retrieving...");
-				String content = sfsf.getEntityCount(item.getName());
 				entityList.getTable().refresh();
-				try {
-					// Try parsing the value if possible
-					Integer.valueOf(content);
+				String content = sfsf.getEntityCount(item.getName());
+
+				if (Utils.isInteger(content)) {
 					item.setCount(content);
-				} catch (NumberFormatException nfe) {
-					if (content != null)
-						item.setCount(content);
-					else
-						item.setCount("N/A");
-					addInIgnorables(item.getName());
+					item.setNumeric(true);
+					IgnorableEntityHandler.removeFromIgnorables(List.of(item), true);
+				} else {
+					item.setCount("N/A");
+					item.setNumeric(false);
+					IgnorableEntityHandler.addInIgnorables(item.getName());
 				}
 				entityList.getTable().refresh();
 			});

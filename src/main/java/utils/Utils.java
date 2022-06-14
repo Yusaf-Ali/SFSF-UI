@@ -53,4 +53,22 @@ public class Utils {
 		}
 		return converted;
 	}
+
+	public static boolean isInteger(String content) {
+		try {
+			Integer.valueOf(content);
+			return true;
+		} catch (Exception e) {
+		}
+		return false;
+	}
+
+	public static boolean isDouble(String content) {
+		try {
+			Double.valueOf(content);
+			return true;
+		} catch (Exception e) {
+		}
+		return false;
+	}
 }
