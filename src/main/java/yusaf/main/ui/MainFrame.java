@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -23,6 +24,7 @@ import javafx.event.EventHandler;
 import javafx.scene.Scene;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import utils.DefaultConfiguration;
@@ -36,6 +38,7 @@ public class MainFrame extends Application {
 	private static Scene scene;
 	private static List<Thread> threadList = new ArrayList<>();
 	private static ProgressBar progressBar = new ProgressBar();
+	private static EntityListView entityList;
 
 	@Override
 	public void start(Stage stage) throws Exception {
@@ -53,7 +56,7 @@ public class MainFrame extends Application {
 			List<String> entities = getEntityListFromFile(doc);
 			progressBar.setProgress(1);
 
-			EntityListView entityList = new EntityListView();
+			entityList = new EntityListView();
 			entityList.setSFSF(sfsf);
 			entityList.setRefreshEventHandler(new CustomEventHandler(entityList, sfsf));
 			entityList.setClearEventHandler((e) -> {
@@ -65,34 +68,7 @@ public class MainFrame extends Application {
 				});
 				IgnorableEntityHandler.removeFromIgnorables(entityList.getTable().getItems(), false);
 			});
-			entityList.createEntityTableViewFromList(entities, event -> {
-				if (event.getButton() == MouseButton.PRIMARY) {
-					Thread t = new Thread() {
-						@Override
-						public void run() {
-							EntityInformation selected = entityList.getTable().getSelectionModel().getSelectedItem();
-							if (selected == null)
-								return;
-							System.out.println(selected.getName() + "\t" + selected.getCount());
-							String response = sfsf.getEntityRecords(selected.getName());
-							if (response == null || response.equals("null")) {
-								System.err.println("Error response for " + selected.getName());
-								System.err.println(response);
-								return;
-							}
-
-							List<Map<String, String>> list = SFSF.getResultsFromJson(response);
-							Platform.runLater(new Runnable() {
-								@Override
-								public void run() {
-									entityList.populateDetailTable(list);
-								}
-							});
-						}
-					};
-					t.start();
-				}
-			});
+			entityList.createEntityTableViewFromList(entities, detailsActions);
 			progressBar.setProgress(0);
 			entityList.createEmptyDetailTable();
 			MainFrame.scene = entityList.createSceneWithDetailView(entityList.getTable(), progressBar);
@@ -111,6 +87,7 @@ public class MainFrame extends Application {
 				IgnorableEntityHandler.ignorables().forEach(ign -> {
 					System.out.println(ign);
 				});
+				IgnorableEntityHandler.saveIgnorables();
 				return null;
 			});
 
@@ -197,6 +174,40 @@ public class MainFrame extends Application {
 		});
 		return registeredThreads;
 	}
+
+	EventHandler<MouseEvent> detailsActions = (event) -> {
+		if (event.getButton() == MouseButton.PRIMARY) {
+			Thread t = new Thread() {
+				@Override
+				public void run() {
+					EntityInformation selected = entityList.getTable().getSelectionModel().getSelectedItem();
+					if (selected == null)
+						return;
+					System.out.println(selected.getName() + "\t" + selected.getCount());
+
+					List<String> selectList = selected.getAllFields().stream().collect(Collectors.toList());
+					selectList.removeAll(selected.getIgnorables());
+					String selects = selectList.stream().collect(Collectors.joining(","));
+
+					String response = entityList.getSFSF().getEntityRecords(selected.getName(), 200, 0, selects);
+					if (response == null || response.equals("null")) {
+						System.err.println("Error response for " + selected.getName());
+						System.err.println(response);
+						return;
+					}
+
+					List<Map<String, String>> list = SFSF.getResultsFromJson(response);
+					Platform.runLater(new Runnable() {
+						@Override
+						public void run() {
+							entityList.populateDetailTable(list);
+						}
+					});
+				}
+			};
+			t.start();
+		}
+	};
 
 	private static class CustomEventHandler implements EventHandler<ActionEvent> {
 		private EntityListView entityList;

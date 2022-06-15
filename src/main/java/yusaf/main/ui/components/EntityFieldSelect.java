@@ -2,6 +2,7 @@ package yusaf.main.ui.components;
 
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -19,18 +20,32 @@ import javafx.stage.Stage;
 
 public class EntityFieldSelect {
 	private Stage window;
+	private ObservableList<EntityFieldSelectItem> dataList;
+	private Callable<Void> saveAction;
+	private List<String> initIgnoredItems;
+	private List<String> initAllFields;
 
-	public EntityFieldSelect(List<String> fields, Callable<Void> callable) {
+	public EntityFieldSelect(List<String> fields) {
+		dataList = FXCollections.observableArrayList();
+		initAllFields = fields;
+	}
+
+	public void render() {
+		if (initIgnoredItems == null) {
+			initAllFields.forEach(field -> {
+				EntityFieldSelectItem item = new EntityFieldSelectItem(field, true);
+				dataList.add(item);
+			});
+		} else {
+			initAllFields.forEach(field -> {
+				boolean isAlreadyIgnored = initIgnoredItems.stream().filter(f -> f.equals(field)).count() > 0;
+				EntityFieldSelectItem item = new EntityFieldSelectItem(field, !isAlreadyIgnored);
+				dataList.add(item);
+			});
+		}
 		window = new Stage();
 		window.setMinHeight(500);
 		window.setMinWidth(500);
-
-		ObservableList<EntityFieldSelectItem> dataList = FXCollections.observableArrayList();
-
-		fields.forEach(field -> {
-			EntityFieldSelectItem item = new EntityFieldSelectItem(field);
-			dataList.add(item);
-		});
 
 		Button selectAll = new Button("Select All");
 		Button clearAll = new Button("Clear All");
@@ -69,7 +84,7 @@ public class EntityFieldSelect {
 
 		saveButton.setOnAction((e) -> {
 			try {
-				callable.call();
+				saveAction.call();
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
@@ -88,6 +103,19 @@ public class EntityFieldSelect {
 		window.setScene(scene);
 	}
 
+	public void setIgnoredItems(List<String> ignorables) {
+		this.initIgnoredItems = ignorables;
+	}
+
+	public List<String> getIgnoredItems() {
+		return dataList.stream().filter(f -> !f.isFetchable())
+				.map(m -> m.getFieldName()).collect(Collectors.toList());
+	}
+
+	public void setSaveAction(Callable<Void> saveActionCallable) {
+		this.saveAction = saveActionCallable;
+	}
+
 	public static class EntityFieldSelectItem {
 		private String fieldName;
 		private BooleanProperty fetchable = new SimpleBooleanProperty();
@@ -98,7 +126,11 @@ public class EntityFieldSelect {
 		EntityFieldSelectItem(String field) {
 			this.fieldName = field;
 			this.fetchable.setValue(false);
-			;
+		}
+
+		EntityFieldSelectItem(String field, boolean checked) {
+			this.fieldName = field;
+			this.fetchable.setValue(checked);
 		}
 
 		public BooleanProperty fetchableProperty() {

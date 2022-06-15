@@ -28,11 +28,32 @@ public class EntityListTableContextMenu {
 
 	public EntityListTableContextMenu(SFSF sfsf, EntityListView table) {
 		menu = new ContextMenu();
-		MenuItem selects = new MenuItem("Configure Selects");
+		MenuItem selectMenuItem = new MenuItem("Configure Selects");
 		menu.setOnAction((event) -> {
+			ProgressBar pb = MainFrame.getProgressBar();
+			pb.setProgress(0);
+			pb.setVisible(true);
 			MenuItem item = (MenuItem) (event.getTarget());
-			if (item.equals(selects)) {
+			if (item.equals(selectMenuItem)) {
 				EntityInformation s = table.getTable().getSelectionModel().getSelectedItem();
+				if (s == null)
+					return;
+				if (s.getAllFields().size() > 0) {
+					Platform.runLater(() -> {
+						EntityFieldSelect popup = new EntityFieldSelect(s.getAllFields());
+						popup.setIgnoredItems(s.getIgnorables());
+						popup.setSaveAction(() -> {
+							s.setAllFields(s.getAllFields());
+							s.setIgnoredFields(popup.getIgnoredItems());
+							return null;
+						});
+						popup.render();
+						popup.show();
+						pb.setProgress(1);
+						pb.setVisible(false);
+					});
+					return;
+				}
 				Thread t = new Thread() {
 					public void run() {
 						ProgressBar pb = MainFrame.getProgressBar();
@@ -44,6 +65,7 @@ public class EntityListTableContextMenu {
 							Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
 									.parse(new InputSource(new StringReader(data)));
 							NodeList properties = doc.getElementsByTagName("Property");
+
 							List<String> fields = new ArrayList<>();
 							for (int index = 0; index < properties.getLength(); index++) {
 								Node node = properties.item(index);
@@ -57,10 +79,15 @@ public class EntityListTableContextMenu {
 								}
 							}
 							pb.setProgress(0.7);
+
 							Platform.runLater(() -> {
-								EntityFieldSelect popup = new EntityFieldSelect(fields, () -> {
+								EntityFieldSelect popup = new EntityFieldSelect(fields);
+								popup.setSaveAction(() -> {
+									s.setAllFields(fields);
+									s.setIgnoredFields(popup.getIgnoredItems());
 									return null;
 								});
+								popup.render();
 								popup.show();
 								pb.setProgress(1);
 								pb.setVisible(false);
@@ -73,7 +100,7 @@ public class EntityListTableContextMenu {
 				t.start();
 			}
 		});
-		menu.getItems().add(selects);
+		menu.getItems().add(selectMenuItem);
 	}
 
 	public ContextMenu getMenu() {

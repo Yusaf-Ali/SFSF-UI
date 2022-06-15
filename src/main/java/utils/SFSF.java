@@ -55,16 +55,18 @@ public class SFSF {
 
 	public String getEntityRecords(String entity, int top, int skip, String select) {
 		String url = config.getBaseUrl() + "/" + entity;
-		if (top > 0 && skip > 0 && (select != null & !select.isEmpty()))
+		if (top > 0 && skip > 0 && (select != null && !select.isEmpty()))
 			url += "?$top=" + top + "&$skip=" + skip + "$select=" + select;
 		else if (top > 0 && skip > 0)
 			url += "?$top=" + top + "&$skip=" + skip;
+		else if (top > 0 && (select != null && !select.isEmpty()))
+			url += "?$top=" + top + "&$select=" + select;
 		else if (top > 0)
 			url += "?$top=" + top;
 		else if (skip > 0)
 			url += "?$skip=" + skip;
-		else if (select != null & !select.isEmpty())
-			url += "?$select=";
+		else if (select != null && !select.isEmpty())
+			url += "?$select=" + select;
 		return readJson(url);
 	}
 
@@ -76,6 +78,7 @@ public class SFSF {
 		HttpURLConnection ss = null;
 		try {
 			URL u = new URL(url);
+			System.out.println("read: " + url);
 			ss = (HttpURLConnection) u.openConnection();
 			ss.setRequestProperty("Authorization", combineCreds(config.getUsernameAndCompany(), config.getPp()));
 			InputStream responseStream = ss.getInputStream();
@@ -110,6 +113,7 @@ public class SFSF {
 			else
 				url += "$format=json";
 			URL u = new URL(url);
+			System.out.println("readJson: " + url);
 			ss = (HttpURLConnection) u.openConnection();
 			ss.setRequestProperty("Authorization", combineCreds(config.getUsernameAndCompany(), config.getPp()));
 			InputStream responseStream = ss.getInputStream();

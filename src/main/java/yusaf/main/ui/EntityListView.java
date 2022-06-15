@@ -39,6 +39,10 @@ public class EntityListView {
 		this.sfsf = sfsf;
 	}
 
+	public SFSF getSFSF() {
+		return sfsf;
+	}
+
 	public void setRefreshEventHandler(EventHandler<ActionEvent> eventHandler) {
 		this.refreshEventHandler = eventHandler;
 	}
@@ -178,6 +182,14 @@ public class EntityListView {
 
 		public List<String> getIgnorables() {
 			return ignoredFields;
+		}
+
+		public void setAllFields(List<String> allFields) {
+			this.allFields = allFields;
+		}
+
+		public void setIgnoredFields(List<String> ignoredFields) {
+			this.ignoredFields = ignoredFields;
 		}
 
 		public void setNumeric(boolean is) {
