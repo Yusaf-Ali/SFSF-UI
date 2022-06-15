@@ -1,8 +1,16 @@
 package utils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -52,6 +60,12 @@ public class Utils {
 			e.printStackTrace();
 		}
 		return converted;
+	}
+
+	public static Document getDocument(InputStream source)
+			throws SAXException, IOException, ParserConfigurationException {
+		Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(source);
+		return doc;
 	}
 
 	public static boolean isInteger(String content) {

@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.w3c.dom.Document;
@@ -50,7 +49,7 @@ public class MainFrame extends Application {
 
 			progressBar.setProgress(0);
 			InputStream is = new FileInputStream("content.xml");
-			Document doc = getDocument(is);
+			Document doc = Utils.getDocument(is);
 			List<String> entities = getEntityListFromFile(doc);
 			progressBar.setProgress(1);
 
@@ -108,7 +107,12 @@ public class MainFrame extends Application {
 
 			System.out.println("Sending requests");
 			// Run 20 threads in one second, gap evaluates to 1000 / 20 = 50;
-			ThreadManager.runTasks(nonregisteredThreads, 1000 / 20, threadList);
+			ThreadManager.runTasks(nonregisteredThreads, 1000 / 20, threadList, () -> {
+				IgnorableEntityHandler.ignorables().forEach(ign -> {
+					System.out.println(ign);
+				});
+				return null;
+			});
 
 			stage.setTitle("SFSF UI");
 			stage.setScene(scene);
@@ -136,9 +140,10 @@ public class MainFrame extends Application {
 		threadList.forEach(thread -> {
 			thread.interrupt();
 		});
-		if (pw != null) {
-			pw.flush();
-			pw.close();
+		PrintWriter writer = IgnorableEntityHandler.getWriter();
+		if (writer != null) {
+			IgnorableEntityHandler.saveIgnorables();
+			writer.close();
 		}
 		System.exit(0);
 	}
@@ -149,14 +154,6 @@ public class MainFrame extends Application {
 
 	public static void main(String[] args) {
 		MainFrame.launch();
-	}
-
-	private static PrintWriter pw;
-
-	private static Document getDocument(InputStream source)
-			throws SAXException, IOException, ParserConfigurationException {
-		Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(source);
-		return doc;
 	}
 
 	private static List<String> getEntityListFromFile(Document doc) {

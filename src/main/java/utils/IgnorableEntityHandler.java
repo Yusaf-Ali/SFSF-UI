@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +16,10 @@ public class IgnorableEntityHandler {
 	private static PrintWriter pw;
 
 	public static void addInIgnorables(String name) {
+		ignorables.add(name);
+	}
+
+	public static void saveIgnorables() {
 		try {
 			File file = new File("ignorables.txt");
 			if (!file.exists()) {
@@ -25,10 +28,12 @@ public class IgnorableEntityHandler {
 			if (pw == null) {
 				pw = new PrintWriter(new FileWriter("ignorables.txt", true));
 			}
-			pw.append(name + "\n");
+			ignorables.forEach(name -> {
+				pw.append(name + "\n");
+			});
 			pw.flush();
 		} catch (Exception e) {
-			System.err.println("Unable to update ignorables list " + name);
+			System.err.println("Unable to save ignorables list");
 		}
 	};
 
@@ -43,31 +48,24 @@ public class IgnorableEntityHandler {
 	}
 
 	public static void removeFromIgnorables(List<EntityInformation> items, boolean filterNonNumeric) {
-		ignorables.removeAll(items.stream().filter(p -> {
-			if (filterNonNumeric)
-				return p.isNumeric();
-			return true;
-		}).map(m -> m.getName()).collect(Collectors.toList()));
-		try {
-			File file = new File("ignorables.txt");
-			if (!file.exists()) {
-				file.delete();
-				file.createNewFile();
-			}
-			if (pw == null) {
-				pw = new PrintWriter(new FileWriter(file, false));
-			}
-			ignorables.forEach(name -> {
-				pw.append(name + "\n");
-			});
-			pw.flush();
-			pw.close();
-		} catch (IOException e) {
-			System.err.println(e.getMessage());
+		// If the item is non numeric then remove it from ignorables.
+		if (filterNonNumeric) {
+			ignorables.removeAll(items.stream()
+					.filter(p -> p.isNumeric())
+					.map(x -> x.getName())
+					.collect(Collectors.toList()));
+		} else {
+			ignorables.removeAll(items.stream()
+					.map(x -> x.getName())
+					.collect(Collectors.toList()));
 		}
 	}
 
 	public static List<String> ignorables() {
 		return ignorables;
+	}
+
+	public static PrintWriter getWriter() {
+		return pw;
 	}
 }

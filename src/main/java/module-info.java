@@ -1,7 +1,7 @@
 module mainapp {
 	requires transitive javafx.graphics;
 	requires transitive javafx.controls;
-	requires java.xml;
+	requires transitive java.xml;
 	requires com.fasterxml.jackson.databind;
 
 	exports utils;
