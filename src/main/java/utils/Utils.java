@@ -85,4 +85,9 @@ public class Utils {
 		}
 		return false;
 	}
+
+	public static String mapToJson(Map<String, Object> body) throws JsonProcessingException {
+		ObjectMapper mapper = new ObjectMapper();
+		return mapper.writeValueAsString(body);
+	}
 }

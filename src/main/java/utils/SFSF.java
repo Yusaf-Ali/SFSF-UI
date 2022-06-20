@@ -3,9 +3,11 @@ package utils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -25,6 +27,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 public class SFSF {
 	private Configuration config;
+	/** yyyy-MM-dd'T'HH:mm:ss */
 	public static DateTimeFormatter sfsfDateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
 	public SFSF(Configuration config) {
@@ -37,6 +40,14 @@ public class SFSF {
 		return usernameAndPP;
 	}
 
+	public String getAuth() {
+		return combineCreds(config.getUsernameAndCompany(), config.getPp());
+	}
+
+	public Configuration getConfig() {
+		return config;
+	}
+
 	public String getCountUrl(String forEntity) {
 		return config.getBaseUrl() + "/" + forEntity + "/$count";
 	}
@@ -45,28 +56,69 @@ public class SFSF {
 		return read(getCountUrl(entity));
 	}
 
+	public String getEntity(String entity, String filter) throws UnsupportedEncodingException {
+		return getEntityRecords(entity, 1, 0, null, filter);
+	}
+
 	public String getEntityRecords(String entity) {
-		return getEntityRecords(entity, 200, 0, "");
+		try {
+			return getEntityRecords(entity, 2, 0, null, null);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	public String getEntityRecords(String entity, int top, int skip) {
-		return getEntityRecords(entity, top, skip, "");
+		try {
+			return getEntityRecords(entity, top, skip, null, null);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	public String getEntityRecords(String entity, int top, int skip, String select) {
+		try {
+			return getEntityRecords(entity, top, skip, select, null);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public String getEntityRecords(String entity, int top, int skip, String select, String filter) throws UnsupportedEncodingException {
 		String url = config.getBaseUrl() + "/" + entity;
-		if (top > 0 && skip > 0 && (select != null && !select.isEmpty()))
+		if (top > 0 && skip > 0 && (select != null && !select.isEmpty()) && (filter != null && !filter.isEmpty()))
+			url += "?$top=" + top + "&$skip=" + skip + "$select=" + select + "$filter=" + URLEncoder.encode(filter, "UTF-8");
+
+		else if (top > 0 && skip > 0 && (select != null && !select.isEmpty()))
 			url += "?$top=" + top + "&$skip=" + skip + "$select=" + select;
+		else if (top > 0 && skip > 0 && (filter != null && !filter.isEmpty()))
+			url += "?$top=" + top + "&$skip=" + skip + "$filter=" + URLEncoder.encode(filter, "UTF-8");
+
 		else if (top > 0 && skip > 0)
 			url += "?$top=" + top + "&$skip=" + skip;
+
 		else if (top > 0 && (select != null && !select.isEmpty()))
 			url += "?$top=" + top + "&$select=" + select;
+		else if (top > 0 && (filter != null && !filter.isEmpty()))
+			url += "?$top=" + top + "&$filter=" + URLEncoder.encode(filter, "UTF-8");
+
+		else if (skip > 0 && (select != null && !select.isEmpty()))
+			url += "?$skip=" + skip + "&$select=" + select;
+		else if (skip > 0 && (filter != null && !filter.isEmpty()))
+			url += "?$skip=" + skip + "&$filter=" + URLEncoder.encode(filter, "UTF-8");
+
 		else if (top > 0)
 			url += "?$top=" + top;
 		else if (skip > 0)
 			url += "?$skip=" + skip;
+
 		else if (select != null && !select.isEmpty())
 			url += "?$select=" + select;
+		else if (filter != null && !filter.isEmpty())
+			url += "?$filter=" + URLEncoder.encode(filter, "UTF-8");
 		return readJson(url);
 	}
 
@@ -115,6 +167,7 @@ public class SFSF {
 			URL u = new URL(url);
 			System.out.println("readJson: " + url);
 			ss = (HttpURLConnection) u.openConnection();
+			ss.setConnectTimeout(1000 * 60);
 			ss.setRequestProperty("Authorization", combineCreds(config.getUsernameAndCompany(), config.getPp()));
 			InputStream responseStream = ss.getInputStream();
 			if (responseStream.available() > 0) {

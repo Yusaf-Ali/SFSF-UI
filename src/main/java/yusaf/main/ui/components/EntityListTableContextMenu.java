@@ -28,7 +28,7 @@ public class EntityListTableContextMenu {
 
 	public EntityListTableContextMenu(SFSF sfsf, EntityListView table) {
 		menu = new ContextMenu();
-		MenuItem selectMenuItem = new MenuItem("Configure Selects");
+		MenuItem selectMenuItem = new MenuItem("Configure Selects...");
 		menu.setOnAction((event) -> {
 			ProgressBar pb = MainFrame.getProgressBar();
 			pb.setProgress(0);

@@ -12,7 +12,6 @@ import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableColumn;
@@ -23,6 +22,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 import utils.SFSF;
@@ -32,7 +32,8 @@ public class EntityListView {
 	private TableView<EntityInformation> table;
 	private TableView<DynamicRow> detailTable;
 	private EventHandler<ActionEvent> refreshEventHandler;
-	private EventHandler<ActionEvent> clearEventHandler;
+	private EventHandler<ActionEvent> clearIgnorablesEventHandler;
+	ObservableList<EntityInformation> fullList;
 	private SFSF sfsf;
 
 	public void setSFSF(SFSF sfsf) {
@@ -47,8 +48,12 @@ public class EntityListView {
 		this.refreshEventHandler = eventHandler;
 	}
 
-	public void setClearEventHandler(EventHandler<ActionEvent> eventHandler) {
-		this.clearEventHandler = eventHandler;
+	public void setClearIgnorablesEventHandler(EventHandler<ActionEvent> eventHandler) {
+		this.clearIgnorablesEventHandler = eventHandler;
+	}
+
+	public ObservableList<EntityInformation> getFullList() {
+		return fullList;
 	}
 
 	public TableView<EntityInformation> createEntityTableViewFromList(List<String> entities,
@@ -60,9 +65,9 @@ public class EntityListView {
 		cName.setCellValueFactory(new PropertyValueFactory<>("name"));
 		cCount.setCellValueFactory(new PropertyValueFactory<>("count"));
 
-		ObservableList<EntityInformation> list = FXCollections.observableArrayList();
+		fullList = FXCollections.observableArrayList();
 		table = new TableView<>();
-		table.setItems(list);
+		table.setItems(fullList);
 		// Set columns
 		table.getColumns().add(cName);
 		table.getColumns().add(cCount);
@@ -78,14 +83,14 @@ public class EntityListView {
 
 		// Set data
 		entities.forEach(entity -> {
-			list.add(new EntityInformation(entity, "Waiting"));
+			fullList.add(new EntityInformation(entity, "Waiting"));
 		});
 
 		table.setContextMenu(contextMenu.getMenu());
 		return table;
 	}
 
-	public VBox createTableAndSearchBarView(TableView<EntityInformation> table, ProgressBar progressBar) {
+	public Pane createTableAndSearchBarView(TableView<EntityInformation> table, ProgressBar progressBar) {
 		FilteredList<EntityInformation> filteredList = new FilteredList<EntityListView.EntityInformation>(
 				table.getItems());
 		TextField searchBar = new TextField();
@@ -101,16 +106,18 @@ public class EntityListView {
 		table.setItems(sortableFilteredList);
 
 		Button clearIgnorables = new Button("Clear Ignorables");
-		clearIgnorables.setOnAction(clearEventHandler);
+		clearIgnorables.setOnAction(clearIgnorablesEventHandler);
 
 		Button refreshButton = new Button("Refresh");
 		refreshButton.setOnAction(refreshEventHandler);
 
 		HBox topBar = null;
 		if (progressBar == null) {
-			topBar = new HBox(searchBar, refreshButton, clearIgnorables);
+			topBar = new HBox(searchBar);
+//			topBar = new HBox(searchBar, refreshButton, clearIgnorables);
 		} else {
-			topBar = new HBox(searchBar, refreshButton, clearIgnorables, progressBar);
+			topBar = new HBox(searchBar, progressBar);
+//			topBar = new HBox(searchBar, refreshButton, clearIgnorables, progressBar);
 			progressBar.prefHeightProperty().bind(topBar.heightProperty());
 		}
 
@@ -118,17 +125,15 @@ public class EntityListView {
 		return box;
 	}
 
-	public Scene createSceneWithTableView(TableView<EntityInformation> table) {
-		VBox box = createTableAndSearchBarView(table, null);
-		Scene scene = new Scene(box);
-		return scene;
+	public Pane createSceneWithTableView(TableView<EntityInformation> table) {
+		Pane box = createTableAndSearchBarView(table, null);
+		return box;
 	}
 
-	public Scene createSceneWithDetailView(TableView<EntityInformation> table, ProgressBar progressBar) {
-		VBox vBox = createTableAndSearchBarView(table, progressBar);
+	public Pane createSceneWithDetailView(TableView<EntityInformation> table, ProgressBar progressBar) {
+		Pane vBox = createTableAndSearchBarView(table, progressBar);
 		HBox box = new HBox(vBox, detailTable);
-		Scene scene = new Scene(box);
-		return scene;
+		return box;
 	}
 
 	public void createEmptyDetailTable() {

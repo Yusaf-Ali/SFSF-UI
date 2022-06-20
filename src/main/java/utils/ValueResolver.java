@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -32,6 +34,28 @@ public class ValueResolver {
 		return "Unable to convert";
 	}
 
+	public static String toSFDate(Instant instant) {
+		return toSFDate(instant.toEpochMilli());
+	}
+
+	public static String toSFDate(long milli) {
+		return "/Date(" + milli + ")/";
+	}
+
+	/**
+	 * Converts String date to yyyy-MM-ddTHH:mm:ss
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public static String convertDateToFormattedString(String value) {
+		if (value.contains("T")) {
+			ZonedDateTime dateTime = Instant.parse(value).atZone(ZoneId.of("UTC"));
+			return dateTime.format(SFSF.sfsfDateFormat);
+		}
+		return convertToDate(value);
+	}
+
 	private static String mapToString(LinkedHashMap<?, ?> map) {
 		return map.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", "));
 	}
@@ -42,5 +66,13 @@ public class ValueResolver {
 		Long l = Long.valueOf(value);
 		Instant s = Instant.ofEpochMilli(l);
 		return ZonedDateTime.ofInstant(s, ZoneId.of("UTC")).format(SFSF.sfsfDateFormat);
+	}
+
+	public static String resolveKeyValue(String value) {
+		Matcher m = Pattern.compile("(\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d)").matcher(value);
+		if (m.matches()) {
+			return "datetime'" + value + "'";
+		}
+		return "'" + value + "'";
 	}
 }
