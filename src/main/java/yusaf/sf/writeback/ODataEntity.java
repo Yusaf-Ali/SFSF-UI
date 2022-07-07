@@ -6,11 +6,31 @@ import java.util.stream.Collectors;
 
 import utils.ValueResolver;
 
+/**
+ * Extending this Type?, make sure to set type and override its {@link #setType(String)} method to nothing.<br>
+ * Also use super.setType instead of this.setType in constructor.<br>
+ * Every constructor must contain keys as its parameter, to identify what fields are keys.<br>
+ * <b>Some entities are not deletable. Create with caution!<b>
+ * 
+ * @author yali
+ *
+ */
 public class ODataEntity {
 	private String type;
-	private HashMap<String, String> keys = new HashMap<>();
-	private HashMap<String, String> fields = new HashMap<>();
-	private HashMap<String, ODataEntity> navFields = new HashMap<>();
+	private Map<String, String> keys = new HashMap<>();
+	private Map<String, String> fields = new HashMap<>();
+	private Map<String, ODataEntity> navFields = new HashMap<>();
+
+	/**
+	 * Creates a $filter String with " eq " and join with " and "
+	 * 
+	 * @return
+	 */
+	public String createFilter() {
+		return keys.entrySet().stream().map(entry -> {
+			return entry.getKey() + " eq " + ValueResolver.resolveKeyValue(entry.getValue());
+		}).collect(Collectors.joining(" and "));
+	}
 
 	public String getType() {
 		return type;
@@ -20,11 +40,15 @@ public class ODataEntity {
 		this.type = type;
 	}
 
-	public HashMap<String, String> getFields() {
+	public String getField(String key) {
+		return fields.get(key);
+	}
+
+	public Map<String, String> getFields() {
 		return fields;
 	}
 
-	public void setFields(HashMap<String, String> fields) {
+	public void setFields(Map<String, String> fields) {
 		this.fields = fields;
 	}
 
@@ -32,11 +56,15 @@ public class ODataEntity {
 		this.fields.put(fieldName, value);
 	}
 
-	public HashMap<String, String> getKeys() {
+	public String getKey(String key) {
+		return keys.get(key);
+	}
+
+	public Map<String, String> getKeys() {
 		return keys;
 	}
 
-	public void setKeys(HashMap<String, String> keys) {
+	public void setKeys(Map<String, String> keys) {
 		this.keys = keys;
 	}
 
@@ -44,11 +72,11 @@ public class ODataEntity {
 		this.keys.put(keyName, value);
 	}
 
-	public HashMap<String, ODataEntity> getNavFields() {
+	public Map<String, ODataEntity> getNavFields() {
 		return navFields;
 	}
 
-	public void setNavFields(HashMap<String, ODataEntity> navFields) {
+	public void setNavFields(Map<String, ODataEntity> navFields) {
 		this.navFields = navFields;
 	}
 
@@ -125,5 +153,18 @@ public class ODataEntity {
 			}).collect(Collectors.joining(", ")));
 		}
 		return sb.toString();
+	}
+
+	public void copyTo(ODataEntity entity) {
+		this.fields.forEach((k, v) -> {
+			entity.fields.put(k, v);
+		});
+		this.keys.forEach((k, v) -> {
+			entity.keys.put(k, v);
+		});
+		this.navFields.forEach((k, v) -> {
+			entity.navFields.put(k, v);
+		});
+		entity.type = this.type;
 	}
 }
