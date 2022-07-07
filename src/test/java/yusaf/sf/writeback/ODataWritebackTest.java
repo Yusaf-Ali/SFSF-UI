@@ -2,6 +2,10 @@ package yusaf.sf.writeback;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,14 +17,16 @@ import utils.SFSF;
 import utils.ValueResolver;
 
 public class ODataWritebackTest {
-	public static void testValueResolver(String args[]) {
+	@Test
+	public void testValueResolver() {
 		System.out.println(Instant.now().toEpochMilli());
 		Object s = ValueResolver.convertDateToFormattedString(String.valueOf(Instant.now().toEpochMilli()));
 		System.out.println(s);
+		ZonedDateTime zdt = LocalDateTime.parse("2000-01-01T00:00:00", DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(ZoneId.of("UTC"));
+		System.out.println(zdt);
 	}
 
-	@Test
-	public void test() throws JsonProcessingException, InterruptedException, UnsupportedEncodingException {
+	public void testOnSFSF() throws JsonProcessingException, InterruptedException, UnsupportedEncodingException {
 		// Create, Sleep, Get, Sleep and delete.
 		upsertEntity();
 		System.out.println("Sleeping");
@@ -31,7 +37,7 @@ public class ODataWritebackTest {
 		System.out.println("Sleeping after deletion");
 		Thread.sleep(1000 * 5);
 		readEntity();
-		// TODO place here check if the results are like
+		// OLDTODO place here check if the results are like
 		/*
 		 * { "d" : { "results" : [
 		 * 
@@ -72,7 +78,7 @@ public class ODataWritebackTest {
 		e.addField("effectiveStatus", "A");
 
 		e.addKey("code", "temppos1701");
-		e.addKey("effectiveStartDate", ValueResolver.toSFDate(1655424000000L));
+		e.addKey("effectiveStartDate", ValueResolver.toSFBodyDate(1655424000000L));
 		System.out.println(e);
 
 		ODataWriter writer = new ODataWriter(sfsf).createUpsertRequest(e);

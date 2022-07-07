@@ -23,20 +23,12 @@ public class ODataWriter {
 		return request.sendRequest();
 	}
 
-	public ODataWriter createInsertRequest(ODataEntity entity) throws JsonProcessingException {
-		// TODO insert request later, use its own ODataInsertRequest
-		request = createRequest(entity, entity.getType());
-		return this;
-	}
-
 	public ODataWriter createUpsertRequest(ODataEntity entity) throws JsonProcessingException {
-		// TODO metadata is not allowed to be null or empty
 		request = createRequest(entity, "upsert");
 		return this;
 	}
 
 	public ODataWriter createDeleteRequest(ODataEntity entity) {
-		// TODO delete request
 		String keys = entity.getKeys().entrySet().stream().map(entry -> {
 			return entry.getKey() + "=" + ValueResolver.resolveKeyValue(entry.getValue());
 		}).collect(Collectors.joining(","));
