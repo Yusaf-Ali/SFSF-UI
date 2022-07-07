@@ -9,12 +9,18 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * This is to convert values from sfsf api to custom strings
+ * This is to convert values from OData API to custom strings
  * 
  * @author yali
  *
  */
 public class ValueResolver {
+	/**
+	 * Generic converter method, handles most values (date time included).
+	 * 
+	 * @param value
+	 * @return
+	 */
 	public static String convert(Object value) {
 		if (value == null || value.equals("null")) {
 			return "null";
@@ -22,7 +28,7 @@ public class ValueResolver {
 		if (value instanceof String) {
 			String con = (String) value;
 			if (con.toLowerCase().contains("/date("))
-				return convertToDate(con);
+				return convertToDateAsString(con);
 			return con;
 		}
 		if (value instanceof LinkedHashMap<?, ?>) {
@@ -34,11 +40,15 @@ public class ValueResolver {
 		return "Unable to convert";
 	}
 
-	public static String toSFDate(Instant instant) {
-		return toSFDate(instant.toEpochMilli());
+	public static String toSFBodyDate(ZonedDateTime zdt) {
+		return toSFBodyDate(zdt.toInstant());
 	}
 
-	public static String toSFDate(long milli) {
+	public static String toSFBodyDate(Instant instant) {
+		return toSFBodyDate(instant.toEpochMilli());
+	}
+
+	public static String toSFBodyDate(long milli) {
 		return "/Date(" + milli + ")/";
 	}
 
@@ -53,25 +63,61 @@ public class ValueResolver {
 			ZonedDateTime dateTime = Instant.parse(value).atZone(ZoneId.of("UTC"));
 			return dateTime.format(SFSF.sfsfDateFormat);
 		}
-		return convertToDate(value);
+		return convertToDateAsString(value);
 	}
 
 	private static String mapToString(LinkedHashMap<?, ?> map) {
 		return map.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).collect(Collectors.joining(", "));
 	}
 
-	private static String convertToDate(String value) {
+	/**
+	 * Converts SF Date Time available in body to ZonedDateTime and then to String.<br>
+	 * Calls {@link #convertToZonedDateTime(String)} internally.
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public static String convertToDateAsString(String value) {
+		return convertToZonedDateTime(value).format(SFSF.sfsfDateFormat);
+	}
+
+	/**
+	 * Converts SF Date Time available in body to ZonedDateTime object.
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public static ZonedDateTime convertToZonedDateTime(String value) {
 		value = value.contains("+") ? value.split("[+]")[0] : value;
 		value = value.replaceAll("[^0-9-]", "");
 		Long l = Long.valueOf(value);
 		Instant s = Instant.ofEpochMilli(l);
-		return ZonedDateTime.ofInstant(s, ZoneId.of("UTC")).format(SFSF.sfsfDateFormat);
+		return ZonedDateTime.ofInstant(s, ZoneId.of("UTC"));
 	}
 
+	/**
+	 * Converts this value to SFSF Uri's Key Date Time format.
+	 * 
+	 * @param value
+	 * @return
+	 */
+	public static String resolveKeyValue(ZonedDateTime value) {
+		String string = value.format(SFSF.sfsfDateFormat);
+		return resolveKeyValue(string);
+	}
+
+	/**
+	 * Converts this value to SFSF Uri's Key Date Time format.
+	 * 
+	 * @param value
+	 * @return
+	 */
 	public static String resolveKeyValue(String value) {
 		Matcher m = Pattern.compile("(\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d)").matcher(value);
 		if (m.matches()) {
 			return "datetime'" + value + "'";
+		} else if (value.startsWith("/Date") && value.endsWith("/")) {
+			return resolveKeyValue(convertToZonedDateTime(value));
 		}
 		return "'" + value + "'";
 	}

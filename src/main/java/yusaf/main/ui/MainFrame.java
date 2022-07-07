@@ -43,9 +43,13 @@ public class MainFrame extends Application {
 		optionsMenu.getItems().add(refreshAll);
 		optionsMenu.getItems().add(new SeparatorMenuItem());
 		optionsMenu.getItems().add(clearIgnorables);
+		IgnorableEntityHandler.readIgnorables();
 
+		long start = System.currentTimeMillis();
+		System.out.println("Starting data frame render: 0");
 		DataFrame frame = new DataFrame(progressBar);
 		Pane dataPanel = frame.render(stage, sfsf);
+		System.out.println("Ending data frame render: " + (System.currentTimeMillis() - start));
 
 		refresh.setOnAction(ev -> {
 			frame.refresh();
@@ -60,8 +64,9 @@ public class MainFrame extends Application {
 			frame.clearIgnorables();
 		});
 
-		BorderPane mainPane = new BorderPane(dataPanel);
+		BorderPane mainPane = new BorderPane();
 		mainPane.setTop(topBar);
+		mainPane.setCenter(dataPanel);
 		Scene scene = new Scene(mainPane);
 
 		stage.setTitle("SFSF UI");
@@ -75,7 +80,11 @@ public class MainFrame extends Application {
 		stage.centerOnScreen();
 //		stage.setScene(loginScene);
 		stage.setOnCloseRequest(x -> onClose());
+		System.out.println("Displaying time: " + (System.currentTimeMillis() - start));
 		stage.show();
+
+		// TODO need to add functionality to access more records, probably using a dialog box that asks for $top
+		// TODO need to save selected fields in a way that it will be available after reopening the program
 	}
 
 	public static List<Thread> getThreadList() {

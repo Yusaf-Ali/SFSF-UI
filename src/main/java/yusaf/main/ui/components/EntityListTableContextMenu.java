@@ -19,9 +19,8 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import utils.SFSF;
-import yusaf.main.ui.EntityListView;
-import yusaf.main.ui.EntityListView.EntityInformation;
 import yusaf.main.ui.MainFrame;
+import yusaf.main.ui.components.EntityListView.EntityInformation;
 
 public class EntityListTableContextMenu {
 	private ContextMenu menu;
