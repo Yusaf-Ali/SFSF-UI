@@ -2,14 +2,19 @@ package utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -39,18 +44,6 @@ public class Utils {
 		return converted;
 	}
 
-	public static List<Map<String, String>> jsonToMap(String fromValue, Function<Map<String, String>, Void> filter) {
-		ObjectMapper mapper = new ObjectMapper();
-		List<Map<String, String>> converted = null;
-		try {
-			converted = mapper.readValue(fromValue, new TypeReference<List<Map<String, String>>>() {
-			});
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		}
-		return converted;
-	}
-
 	public static <T> T jsonToMap(String fromValue, TypeReference<T> typeReference) {
 		ObjectMapper mapper = new ObjectMapper();
 		T converted = null;
@@ -60,6 +53,13 @@ public class Utils {
 			e.printStackTrace();
 		}
 		return converted;
+	}
+
+	public static Document getDocument(String stringSource)
+			throws SAXException, IOException, ParserConfigurationException {
+		Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+				.parse(new InputSource(new StringReader(stringSource)));
+		return doc;
 	}
 
 	public static Document getDocument(InputStream source)
@@ -89,5 +89,25 @@ public class Utils {
 	public static String mapToJson(Map<String, Object> body) throws JsonProcessingException {
 		ObjectMapper mapper = new ObjectMapper();
 		return mapper.writeValueAsString(body);
+	}
+
+	/**
+	 * Converts to LocalDateTime first and then converts to ZonedDateTime using atZone with UTC.<br>
+	 * Only parses {@link DateTimeFormatter#ISO_LOCAL_DATE_TIME} format.
+	 * 
+	 * @param string value to parse.
+	 */
+	public static ZonedDateTime createZDT(String string) {
+		return createZDT(string, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+	}
+
+	/**
+	 * Converts to LocalDateTime first and then converts to ZonedDateTime using atZone with UTC
+	 * 
+	 * @param string value to parse.
+	 * @param format to parse against.
+	 */
+	public static ZonedDateTime createZDT(String string, DateTimeFormatter format) {
+		return LocalDateTime.parse(string, format).atZone(ZoneId.of("UTC"));
 	}
 }

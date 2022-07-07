@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.w3c.dom.Document;
@@ -13,7 +14,10 @@ import org.w3c.dom.NodeList;
 
 import javafx.application.Platform;
 import javafx.event.EventHandler;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
@@ -22,12 +26,15 @@ import utils.IgnorableEntityHandler;
 import utils.SFSF;
 import utils.ThreadManager;
 import utils.Utils;
-import yusaf.main.ui.EntityListView.EntityInformation;
+import yusaf.main.ui.components.EntitiesView;
+import yusaf.main.ui.components.EntityListView;
+import yusaf.main.ui.components.EntityListView.EntityInformation;
 
 public class DataFrame {
 	ProgressBar progressBar;
 	private SFSF sfsf;
 	private static EntityListView entityList;
+	private static EntitiesView entitiesView;
 
 	public DataFrame(ProgressBar progressBar) {
 		this.progressBar = progressBar;
@@ -35,12 +42,12 @@ public class DataFrame {
 
 	public Pane render(Stage stage, SFSF sfsf) {
 		this.sfsf = sfsf;
-		IgnorableEntityHandler.readIgnorables();
 		try {
 //			String content = meta.read(config.baseUrl);
 //			writeToFile(content);
 //			String content = readFromFile();
 
+			System.out.println("Reading entity names from content.xml");
 			progressBar.setProgress(0);
 			InputStream is = new FileInputStream("content.xml");
 			Document doc = Utils.getDocument(is);
@@ -52,6 +59,7 @@ public class DataFrame {
 			entityList.createEntityTableViewFromList(entities, detailsActions);
 			progressBar.setProgress(0);
 			entityList.createEmptyDetailTable();
+
 			Pane panel = entityList.createSceneWithDetailView(entityList.getTable(), progressBar);
 			entityList.getTable().prefHeightProperty().bind(stage.heightProperty());
 			entityList.getTable().prefWidthProperty().bind(stage.widthProperty().multiply(0.25));
@@ -59,10 +67,16 @@ public class DataFrame {
 			entityList.getDetailTable().prefWidthProperty().bind(stage.widthProperty().multiply(0.75));
 			progressBar.setProgress(1);
 
-			List<Thread> nonregisteredThreads = createTaskThreadsForEntityCount(entityList, sfsf, true);
-			MainFrame.getThreadList().addAll(nonregisteredThreads);
+			// As this takes time to run.
+			Thread t = new Thread() {
+				@Override
+				public void run() {
+					List<Thread> nonregisteredThreads = createTaskThreadsForEntityCount(entityList, sfsf, true);
+					MainFrame.getThreadList().addAll(nonregisteredThreads);
+				}
+			};
+			t.start();
 
-			System.out.println("Sending requests");
 			/*
 			 * // Run 20 threads in one second, gap evaluates to 1000 / 20 = 50; ThreadManager.runTasks(nonregisteredThreads, 1000 /
 			 * 20, threadList, () -> { IgnorableEntityHandler.ignorables().forEach(ign -> { System.out.println(ign); });
@@ -148,6 +162,24 @@ public class DataFrame {
 
 	EventHandler<MouseEvent> detailsActions = (event) -> {
 		if (event.getButton() == MouseButton.PRIMARY) {
+			TextInputDialog numberOfRecords = new TextInputDialog("10");
+			numberOfRecords.setTitle("View");
+			numberOfRecords.setHeaderText("Select $top");
+			numberOfRecords.setContentText("Number must be greater than 0");
+			numberOfRecords.getEditor().textProperty().addListener((e, o, n) -> {
+				if (!Utils.isInteger(n) || Integer.parseInt(n) < 1) {
+					numberOfRecords.getEditor().setText(o);
+				}
+			});
+			Optional<String> showAndWait = numberOfRecords.showAndWait();
+			int top[] = new int[] { 1 };
+			if (showAndWait.isPresent()) {
+				try {
+					top[0] = Integer.parseInt(showAndWait.get());
+				} catch (NumberFormatException ex) {
+					System.err.println("Invalid input! " + ex.getMessage());
+				}
+			}
 			Thread t = new Thread() {
 				@Override
 				public void run() {
@@ -160,20 +192,23 @@ public class DataFrame {
 					selectList.removeAll(selected.getIgnorables());
 					String selects = selectList.stream().collect(Collectors.joining(","));
 
-					String response = entityList.getSFSF().getEntityRecords(selected.getName(), 200, 0, selects);
-					if (response == null || response.equals("null")) {
+					String response = entityList.getSFSF().getEntityRecords(selected.getName(), top[0], 0, selects);
+					if (response == null || response.equals("null") || response.startsWith("error:")) {
 						System.err.println("Error response for " + selected.getName());
-						System.err.println(response);
+						System.err.println(response.split("error:")[1]);
+						Platform.runLater(() -> {
+							Alert alertDialog = new Alert(AlertType.ERROR, response.split("error:")[1]);
+							alertDialog.setHeaderText("There was error getting resposne from success factors!");
+							alertDialog.showAndWait();
+						});
+
 						return;
 					}
 
-					List<Map<String, String>> list = SFSF.getResultsFromJson(response);
-					Platform.runLater(new Runnable() {
-						@Override
-						public void run() {
-							entityList.populateDetailTable(list);
-						}
-					});
+					int[] inlinecount = new int[] { 0 };
+					List<Map<String, String>> list = SFSF.getResultsFromJsonInlineCount(response, inlinecount);
+					System.out.println(inlinecount[0]);
+					Platform.runLater(() -> entityList.populateDetailTable(list));
 				}
 			};
 			t.start();
