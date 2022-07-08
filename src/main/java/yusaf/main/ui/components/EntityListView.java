@@ -2,21 +2,16 @@ package yusaf.main.ui.components;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.value.ObservableValue;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
-import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.scene.control.Button;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableColumn.CellDataFeatures;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -25,16 +20,31 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
-import javafx.util.Callback;
+import utils.IgnorableEntityHandler;
 import utils.SFSF;
+import utils.ThreadManager;
+import utils.Utils;
+import yusaf.main.ui.MainFrame;
 
 public class EntityListView {
 	private TableView<EntityInformation> table;
-	private TableView<DynamicRow> detailTable;
-	private EventHandler<ActionEvent> refreshEventHandler;
-	private EventHandler<ActionEvent> clearIgnorablesEventHandler;
 	ObservableList<EntityInformation> fullList;
 	private SFSF sfsf;
+	private TextField searchBar;
+	private ProgressBar pb;
+	private FilteredList<EntityInformation> filteredList;
+
+	public EntityListView(ProgressBar pb) {
+		this.pb = pb;
+		searchBar = new TextField();
+		searchBar.textProperty().addListener((observable, oldValue, newValue) -> {
+			filteredList.setPredicate(p -> {
+				if (newValue == null || newValue.isBlank() || newValue.isEmpty())
+					return true;
+				return p.getName().toLowerCase().contains(newValue.toLowerCase());
+			});
+		});
+	}
 
 	public void setSFSF(SFSF sfsf) {
 		this.sfsf = sfsf;
@@ -44,20 +54,11 @@ public class EntityListView {
 		return sfsf;
 	}
 
-	public void setRefreshEventHandler(EventHandler<ActionEvent> eventHandler) {
-		this.refreshEventHandler = eventHandler;
-	}
-
-	public void setClearIgnorablesEventHandler(EventHandler<ActionEvent> eventHandler) {
-		this.clearIgnorablesEventHandler = eventHandler;
-	}
-
 	public ObservableList<EntityInformation> getFullList() {
 		return fullList;
 	}
 
-	public TableView<EntityInformation> createEntityTableViewFromList(List<String> entities,
-			EventHandler<? super MouseEvent> onRowClicked) {
+	public void initTableViewFromList(EventHandler<? super MouseEvent> onRowClicked) {
 		TableColumn<EntityInformation, String> cName = new TableColumn<>("Name");
 		TableColumn<EntityInformation, String> cCount = new TableColumn<>("Entity count");
 		EntityListTableContextMenu contextMenu = new EntityListTableContextMenu(sfsf, this);
@@ -78,77 +79,106 @@ public class EntityListView {
 			row.setOnMouseClicked(onRowClicked);
 			return row;
 		});
-
-		// Set data, Note: this is time consuming
-		fullList = FXCollections.observableArrayList(entities.stream().map(m -> new EntityInformation(m, "Waiting")).collect(Collectors.toList()));
-		table.setItems(fullList);
-		table.refresh();
-
 		table.setContextMenu(contextMenu.getMenu());
-		return table;
 	}
 
-	public Pane createTableAndSearchBarView(TableView<EntityInformation> table, ProgressBar progressBar) {
-		FilteredList<EntityInformation> filteredList = new FilteredList<EntityListView.EntityInformation>(
-				table.getItems());
-		TextField searchBar = new TextField();
-		searchBar.textProperty().addListener((observable, oldValue, newValue) -> {
-			filteredList.setPredicate(p -> {
-				if (newValue == null || newValue.isBlank() || newValue.isEmpty())
-					return true;
-				return p.getName().toLowerCase().contains(newValue.toLowerCase());
-			});
-		});
+	public void populateData(List<String> entities) {
+		// Set data, Note: this is time consuming
+		fullList = FXCollections.observableArrayList(entities.stream().map(m -> new EntityInformation(m, "Waiting")).collect(Collectors.toList()));
+		searchability();
+		Platform.runLater(() -> table.refresh());
+	}
+
+	private void searchability() {
+		filteredList = new FilteredList<EntityListView.EntityInformation>(
+				fullList);
 		SortedList<EntityInformation> sortableFilteredList = new SortedList<>(filteredList);
 		sortableFilteredList.comparatorProperty().bind(table.comparatorProperty());
 		table.setItems(sortableFilteredList);
+	}
 
-		Button clearIgnorables = new Button("Clear Ignorables");
-		clearIgnorables.setOnAction(clearIgnorablesEventHandler);
-
-		Button refreshButton = new Button("Refresh");
-		refreshButton.setOnAction(refreshEventHandler);
-
+	public Pane createView() {
 		HBox topBar = null;
-		if (progressBar == null) {
-			topBar = new HBox(searchBar);
-//			topBar = new HBox(searchBar, refreshButton, clearIgnorables);
-		} else {
-			topBar = new HBox(searchBar, progressBar);
-//			topBar = new HBox(searchBar, refreshButton, clearIgnorables, progressBar);
-			progressBar.prefHeightProperty().bind(topBar.heightProperty());
-		}
+		topBar = new HBox(searchBar);
 
 		VBox box = new VBox(topBar, table);
 		return box;
 	}
 
-	public Pane createSceneWithTableView(TableView<EntityInformation> table) {
-		Pane box = createTableAndSearchBarView(table, null);
-		return box;
+	public void refresh() {
+		List<Thread> registeredThreads = new ArrayList<>();
+		table.getItems().forEach(item -> {
+			if (!IgnorableEntityHandler.ignorables().contains(item.getName())) {
+				Thread registeredThread = createTaskThread(item);
+				registeredThreads.add(registeredThread);
+			} else {
+				System.out.println("Ignored: " + item.getName());
+			}
+		});
+		ThreadManager.runTasks(registeredThreads, 1000 / 20, MainFrame.getThreadList(), pb);
 	}
 
-	public Pane createSceneWithDetailView(TableView<EntityInformation> table, ProgressBar progressBar) {
-		Pane vBox = createTableAndSearchBarView(table, progressBar);
-		HBox box = new HBox(vBox, detailTable);
-		return box;
+	public void refreshIgnored() {
+		List<Thread> registeredThreads = new ArrayList<>();
+		table.getItems().forEach(item -> {
+			if (IgnorableEntityHandler.ignorables().contains(item.getName())) {
+				// If the entity is in ignored list
+				Thread registeredThread = createTaskThread(item);
+				registeredThreads.add(registeredThread);
+			}
+		});
+		ThreadManager.runTasks(registeredThreads, 1000 / 20, MainFrame.getThreadList(), pb);
 	}
 
-	public void createEmptyDetailTable() {
-		detailTable = new TableView<>();
-		TableColumn<DynamicRow, String> column = new TableColumn<>();
-		column.setText("Select an Item to load some of its entities.");
-		column.setMinWidth(500);
-		detailTable.getColumns().add(column);
-//		detailTable.setMinWidth(500);
+	public void refreshAll() {
+		List<Thread> registeredThreads = new ArrayList<>();
+		fullList.forEach(item -> {
+			Thread registeredThread = createTaskThread(item);
+			registeredThreads.add(registeredThread);
+		});
+		ThreadManager.runTasks(registeredThreads, 1000 / 20, MainFrame.getThreadList(), pb);
+	}
+
+	public void clearIgnorables() {
+		Thread thread = new Thread() {
+			@Override
+			public void run() {
+				table.getItems().forEach(item -> {
+					if (item.getCount().equalsIgnoreCase("Ignored")) {
+						item.setCount("N/A");
+					}
+				});
+				IgnorableEntityHandler.removeFromIgnorables(table.getItems(), false);
+				Platform.runLater(() -> {
+					table.refresh();
+				});
+			}
+		};
+		thread.start();
+	}
+
+	private Thread createTaskThread(EntityInformation item) {
+		Thread registeredThread = new Thread(() -> {
+			item.setCount("Retrieving...");
+			table.refresh();
+			String content = sfsf.getEntityCount(item.getName());
+
+			if (Utils.isInteger(content)) {
+				item.setCount(content);
+				item.setNumeric(true);
+				IgnorableEntityHandler.removeFromIgnorables(List.of(item), true);
+			} else {
+				item.setCount("N/A");
+				item.setNumeric(false);
+				IgnorableEntityHandler.addInIgnorables(item.getName());
+			}
+			table.refresh();
+		});
+		return registeredThread;
 	}
 
 	public TableView<EntityInformation> getTable() {
 		return table;
-	}
-
-	public TableView<DynamicRow> getDetailTable() {
-		return detailTable;
 	}
 
 	public static class EntityInformation {
@@ -206,52 +236,6 @@ public class EntityListView {
 		@Override
 		public String toString() {
 			return name + " " + count;
-		}
-	}
-
-	public static class DynamicRow {
-		Map<String, String> fieldValues;
-
-		public DynamicRow(Map<String, String> fieldValues) {
-			this.fieldValues = fieldValues;
-		}
-
-		public Map<String, String> getFieldValues() {
-			return fieldValues;
-		}
-	}
-
-	public void populateDetailTable(List<Map<String, String>> listing) {
-		if (listing != null && listing.size() > 0) {
-			System.out.println("Cleared table and added " + listing.size() + " items to it from payload.");
-			detailTable.getItems().clear();
-			detailTable.getColumns().clear();
-
-			ObservableList<DynamicRow> rows = FXCollections.observableArrayList();
-			listing.forEach(itemRow -> {
-				DynamicRow row = new DynamicRow(itemRow);
-				rows.add(row);
-			});
-
-			Callback<CellDataFeatures<DynamicRow, String>, ObservableValue<String>> callback = new Callback<>() {
-				@Override
-				public ObservableValue<String> call(CellDataFeatures<DynamicRow, String> cell) {
-					String fieldName = cell.getTableColumn().getText();
-					SimpleStringProperty property = new SimpleStringProperty(
-							cell.getValue().getFieldValues().get(fieldName));
-					return property;
-				};
-			};
-
-			Map<String, String> firstRow = listing.get(0);
-			firstRow.keySet().forEach(fieldName -> {
-				TableColumn<DynamicRow, String> col = new TableColumn<DynamicRow, String>(fieldName);
-				col.setCellValueFactory(callback);
-				detailTable.getColumns().add(col);
-			});
-
-			detailTable.setItems(rows);
-			detailTable.refresh();
 		}
 	}
 }
