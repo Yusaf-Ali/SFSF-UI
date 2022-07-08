@@ -10,6 +10,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.CheckBoxTableCell;
@@ -24,13 +25,25 @@ public class EntityFieldSelect {
 	private Callable<Void> saveAction;
 	private List<String> initIgnoredItems;
 	private List<String> initAllFields;
+	private ProgressBar progressBar = new ProgressBar();
 
-	public EntityFieldSelect(List<String> fields) {
+	public ProgressBar getProgressBar() {
+		return progressBar;
+	}
+
+	public EntityFieldSelect() {
 		dataList = FXCollections.observableArrayList();
-		initAllFields = fields;
 	}
 
 	public void render() {
+		window = new Stage();
+		window.setMinHeight(500);
+		window.setMinWidth(500);
+
+	}
+
+	public void populateData(List<String> fields) {
+		initAllFields = fields;
 		if (initIgnoredItems == null) {
 			initAllFields.forEach(field -> {
 				EntityFieldSelectItem item = new EntityFieldSelectItem(field, true);
@@ -43,9 +56,6 @@ public class EntityFieldSelect {
 				dataList.add(item);
 			});
 		}
-		window = new Stage();
-		window.setMinHeight(500);
-		window.setMinWidth(500);
 
 		Button selectAll = new Button("Select All");
 		Button clearAll = new Button("Clear All");
@@ -96,7 +106,7 @@ public class EntityFieldSelect {
 		});
 
 		HBox buttons = new HBox(selectAll, clearAll);
-		HBox footer = new HBox(saveButton, cancelButton);
+		HBox footer = new HBox(saveButton, cancelButton, progressBar);
 		VBox box = new VBox(buttons, table, footer);
 
 		Scene scene = new Scene(box);

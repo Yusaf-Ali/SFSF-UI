@@ -1,18 +1,10 @@
 package yusaf.main.ui;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.ProgressBar;
-import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Pane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import utils.DefaultConfiguration;
@@ -22,52 +14,22 @@ import utils.ThreadManager;
 
 public class MainFrame extends Application {
 	private static List<Thread> threadList = new ArrayList<>();
-	private static ProgressBar progressBar = new ProgressBar();
 
 	@Override
 	public void start(Stage stage) throws Exception {
 		DefaultConfiguration config = new DefaultConfiguration();
 		SFSF sfsf = new SFSF(config);
 
-		MenuBar topBar = new MenuBar();
-		Menu optionsMenu = new Menu("Options");
-		topBar.getMenus().add(optionsMenu);
-
-		MenuItem refresh = new MenuItem("Refresh");
-		MenuItem refreshIgnored = new MenuItem("Refresh Ignored");
-		MenuItem refreshAll = new MenuItem("Refresh All");
-		MenuItem clearIgnorables = new MenuItem("Clear Ignorables");
-
-		optionsMenu.getItems().add(refresh);
-		optionsMenu.getItems().add(refreshIgnored);
-		optionsMenu.getItems().add(refreshAll);
-		optionsMenu.getItems().add(new SeparatorMenuItem());
-		optionsMenu.getItems().add(clearIgnorables);
 		IgnorableEntityHandler.readIgnorables();
 
 		long start = System.currentTimeMillis();
-		System.out.println("Starting data frame render: 0");
-		DataFrame frame = new DataFrame(progressBar);
-		Pane dataPanel = frame.render(stage, sfsf);
-		System.out.println("Ending data frame render: " + (System.currentTimeMillis() - start));
+		System.out.println("Stage 1 - Starting data frame render");
 
-		refresh.setOnAction(ev -> {
-			frame.refresh();
-		});
-		refreshAll.setOnAction(ev -> {
-			frame.refreshAll();
-		});
-		refreshIgnored.setOnAction(ev -> {
-			frame.refreshIgnored();
-		});
-		clearIgnorables.setOnAction(ev -> {
-			frame.clearIgnorables();
-		});
+		DataFrame frame = new DataFrame(sfsf);
+		System.out.println("Stage 2 - Data frame render: " + (System.currentTimeMillis() - start));
+		Scene scene = new Scene(frame.render(stage));
 
-		BorderPane mainPane = new BorderPane();
-		mainPane.setTop(topBar);
-		mainPane.setCenter(dataPanel);
-		Scene scene = new Scene(mainPane);
+		System.out.println("Stage 3 - Ending data frame render: " + (System.currentTimeMillis() - start));
 
 		stage.setTitle("SFSF UI");
 		stage.setScene(scene);
@@ -96,16 +58,8 @@ public class MainFrame extends Application {
 		threadList.forEach(thread -> {
 			thread.interrupt();
 		});
-		PrintWriter writer = IgnorableEntityHandler.getWriter();
-		if (writer != null) {
-			IgnorableEntityHandler.saveIgnorables();
-			writer.close();
-		}
+		IgnorableEntityHandler.saveIgnorables(true);
 		System.exit(0);
-	}
-
-	public static ProgressBar getProgressBar() {
-		return progressBar;
 	}
 
 	public static void main(String[] args) {

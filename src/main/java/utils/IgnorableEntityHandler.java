@@ -19,19 +19,21 @@ public class IgnorableEntityHandler {
 		ignorables.add(name);
 	}
 
-	public static void saveIgnorables() {
+	public static void saveIgnorables(boolean shouldCloseWriter) {
 		try {
 			File file = new File("ignorables.txt");
 			if (!file.exists()) {
 				file.createNewFile();
 			}
 			if (pw == null) {
-				pw = new PrintWriter(new FileWriter("ignorables.txt", true));
+				pw = new PrintWriter(new FileWriter("ignorables.txt", false));
 			}
 			ignorables.forEach(name -> {
 				pw.append(name + "\n");
 			});
 			pw.flush();
+			if (shouldCloseWriter)
+				pw.close();
 		} catch (Exception e) {
 			System.err.println("Unable to save ignorables list");
 		}
@@ -47,7 +49,7 @@ public class IgnorableEntityHandler {
 		}
 	}
 
-	public static void removeFromIgnorables(List<EntityInformation> items, boolean filterNonNumeric) {
+	public static synchronized void removeFromIgnorables(List<EntityInformation> items, boolean filterNonNumeric) {
 		// If the item is non numeric then remove it from ignorables.
 		if (filterNonNumeric) {
 			ignorables.removeAll(items.stream()

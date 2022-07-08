@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javafx.scene.control.ProgressBar;
-import yusaf.main.ui.MainFrame;
 
 /**
  * Might be overkill.<br>
@@ -27,8 +26,8 @@ public class ThreadManager {
 	private static ExecutorService service = Executors.newFixedThreadPool(20);
 
 	public static void runTasks(List<Thread> threadList, int interval,
-			List<Thread> murderableThreadsList) {
-		runTasks(threadList, interval, murderableThreadsList, null);
+			List<Thread> murderableThreadsList, ProgressBar progressBar) {
+		runTasks(threadList, interval, murderableThreadsList, null, progressBar);
 	}
 
 	/**
@@ -42,14 +41,13 @@ public class ThreadManager {
 	 * @param whenComplete Runs this code after all threads are finished.
 	 */
 	public static void runTasks(List<Thread> threadList, int interval,
-			List<Thread> murderableThreadsList, Callable<Void> whenComplete) {
+			List<Thread> murderableThreadsList, Callable<Void> whenComplete, ProgressBar pb) {
 		CThread runner = new CThread() {
 			public void run() {
 				List<CompletableFuture<?>> futures = new ArrayList<>();
 				double singleItemWeight = 1.0 / threadList.size();
-				ProgressBar progressBar = MainFrame.getProgressBar();
-				progressBar.setProgress(0);
-				progressBar.setVisible(true);
+				pb.setProgress(0);
+				pb.setVisible(true);
 				System.out.println("Starting all threads");
 				threadList.forEach(thread -> {
 					if (Thread.currentThread().isInterrupted()) {
@@ -62,7 +60,7 @@ public class ThreadManager {
 							System.out.println(throwable.getMessage());
 							return;
 						}
-						updateProgress(progressBar, singleItemWeight);
+						updateProgress(pb, singleItemWeight);
 					});
 					try {
 						Thread.sleep(interval);
@@ -78,8 +76,8 @@ public class ThreadManager {
 				all.thenAccept((unknownVariable) -> {
 					System.out.println("All ended now murdering threads");
 					murderableThreadsList.removeAll(threadList);
-					progressBar.setVisible(false);
-					progressBar.setProgress(0);
+					pb.setVisible(false);
+					pb.setProgress(0);
 					try {
 						if (whenComplete != null)
 							whenComplete.call();

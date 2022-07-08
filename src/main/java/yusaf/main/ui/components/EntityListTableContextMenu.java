@@ -19,43 +19,40 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import utils.SFSF;
-import yusaf.main.ui.MainFrame;
 import yusaf.main.ui.components.EntityListView.EntityInformation;
 
 public class EntityListTableContextMenu {
 	private ContextMenu menu;
 
-	public EntityListTableContextMenu(SFSF sfsf, EntityListView table) {
+	public EntityListTableContextMenu(SFSF sfsf, EntityListView view) {
 		menu = new ContextMenu();
 		MenuItem selectMenuItem = new MenuItem("Configure Selects...");
 		menu.setOnAction((event) -> {
-			ProgressBar pb = MainFrame.getProgressBar();
-			pb.setProgress(0);
-			pb.setVisible(true);
 			MenuItem item = (MenuItem) (event.getTarget());
 			if (item.equals(selectMenuItem)) {
-				EntityInformation s = table.getTable().getSelectionModel().getSelectedItem();
+				EntityInformation s = view.getTable().getSelectionModel().getSelectedItem();
 				if (s == null)
 					return;
 				if (s.getAllFields().size() > 0) {
 					Platform.runLater(() -> {
-						EntityFieldSelect popup = new EntityFieldSelect(s.getAllFields());
+						EntityFieldSelect popup = new EntityFieldSelect();
+						popup.render();
+						popup.show();
+						popup.populateData(s.getAllFields());
 						popup.setIgnoredItems(s.getIgnorables());
 						popup.setSaveAction(() -> {
 							s.setAllFields(s.getAllFields());
 							s.setIgnoredFields(popup.getIgnoredItems());
 							return null;
 						});
-						popup.render();
-						popup.show();
-						pb.setProgress(1);
-						pb.setVisible(false);
 					});
 					return;
 				}
 				Thread t = new Thread() {
 					public void run() {
-						ProgressBar pb = MainFrame.getProgressBar();
+						EntityFieldSelect popup = new EntityFieldSelect();
+						popup.render();
+						ProgressBar pb = popup.getProgressBar();
 						pb.setProgress(0);
 						pb.setVisible(true);
 						String data = sfsf.getEntityMetadata(s.getName());
@@ -80,14 +77,12 @@ public class EntityListTableContextMenu {
 							pb.setProgress(0.7);
 
 							Platform.runLater(() -> {
-								EntityFieldSelect popup = new EntityFieldSelect(fields);
 								popup.setSaveAction(() -> {
 									s.setAllFields(fields);
 									s.setIgnoredFields(popup.getIgnoredItems());
 									return null;
 								});
-								popup.render();
-								popup.show();
+								popup.populateData(fields);
 								pb.setProgress(1);
 								pb.setVisible(false);
 							});
