@@ -45,8 +45,8 @@ public class MainFrame extends Application {
 		System.out.println("Displaying time: " + (System.currentTimeMillis() - start));
 		stage.show();
 
-		// TODO need to add functionality to access more records, probably using a dialog box that asks for $top
-		// TODO need to save selected fields in a way that it will be available after reopening the program
+		// TODO need to save selected fields in a way that it will be available after reopening the program.
+		// TODO save the data in a database to easily populate it quickly in the view.
 	}
 
 	public static List<Thread> getThreadList() {

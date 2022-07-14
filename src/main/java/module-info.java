@@ -5,6 +5,7 @@ module mainapp {
 	requires com.fasterxml.jackson.databind;
 
 	exports utils;
+	exports yusaf.main.ui.pojos;
 	exports yusaf.main.ui;
 	exports yusaf.main.ui.components;
 }

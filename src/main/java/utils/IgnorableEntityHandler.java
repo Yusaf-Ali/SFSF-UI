@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import yusaf.main.ui.components.EntityListView.EntityInformation;
+import yusaf.main.ui.pojos.EntityInformation;
 
 public class IgnorableEntityHandler {
 	private static List<String> ignorables = new ArrayList<>();

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
@@ -36,10 +37,26 @@ public class EntityFieldSelect {
 	}
 
 	public void render() {
-		window = new Stage();
-		window.setMinHeight(500);
-		window.setMinWidth(500);
+		Platform.runLater(() -> {
+			window = new Stage();
+			window.setMinHeight(500);
+			window.setMinWidth(500);
+		});
+	}
 
+	public void show() {
+		window.centerOnScreen();
+		window.show();
+	}
+
+	public void renderAndShow() {
+		Platform.runLater(() -> {
+			window = new Stage();
+			window.setMinHeight(500);
+			window.setMinWidth(500);
+			window.centerOnScreen();
+			window.show();
+		});
 	}
 
 	public void populateData(List<String> fields) {
@@ -162,10 +179,5 @@ public class EntityFieldSelect {
 		public String getFieldName() {
 			return fieldName;
 		}
-	}
-
-	public void show() {
-		window.centerOnScreen();
-		window.show();
 	}
 }

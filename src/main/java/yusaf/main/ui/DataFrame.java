@@ -30,12 +30,10 @@ import yusaf.main.ui.components.EntityListView;
 
 public class DataFrame {
 	ProgressBar progressBar;
-	private SFSF sfsf;
 	private static EntityListView entityList;
 	private static EntitiesView entitiesView;
 
 	public DataFrame(SFSF sfsf) {
-		this.sfsf = sfsf;
 		progressBar = new ProgressBar();
 		entityList = new EntityListView(progressBar);
 		entityList.setSFSF(sfsf);
@@ -67,15 +65,14 @@ public class DataFrame {
 			mainPane.setCenter(panel);
 
 			Thread backgroundDataLoad = new Thread(() -> {
-				// List<String> entities = preprocess();
 				try {
 					entityList.populateData(preprocess());
 				} catch (SAXException | IOException | ParserConfigurationException e) {
 					e.printStackTrace();
 				}
 
-				List<Thread> nonregisteredThreads = createTaskThreadsForEntityCount(entityList, sfsf, true);
-				MainFrame.getThreadList().addAll(nonregisteredThreads);
+				// List<Thread> nonregisteredThreads = createTaskThreadsForEntityCount(entityList, sfsf, true);
+				// MainFrame.getThreadList().addAll(nonregisteredThreads);
 				progressBar.setProgress(1);
 			});
 			backgroundDataLoad.start();
@@ -139,7 +136,7 @@ public class DataFrame {
 		return entities;
 	}
 
-	private static List<Thread> createTaskThreadsForEntityCount(EntityListView entityList, SFSF sfsf, boolean shouldIgnore) {
+	public static List<Thread> createTaskThreadsForEntityCount(EntityListView entityList, SFSF sfsf, boolean shouldIgnore) {
 		List<Thread> registeredThreads = new ArrayList<>();
 		entityList.getTable().getItems().forEach(item -> {
 			// Avoid proceeding if the thread is interrupted

@@ -25,6 +25,7 @@ import utils.SFSF;
 import utils.ThreadManager;
 import utils.Utils;
 import yusaf.main.ui.MainFrame;
+import yusaf.main.ui.pojos.EntityInformation;
 
 public class EntityListView {
 	private TableView<EntityInformation> table;
@@ -76,7 +77,10 @@ public class EntityListView {
 
 		table.setRowFactory(f -> {
 			TableRow<EntityInformation> row = new TableRow<>();
-			row.setOnMouseClicked(onRowClicked);
+			row.setOnMouseClicked((ev) -> {
+				if (!row.isEmpty())
+					onRowClicked.handle(ev);
+			});
 			return row;
 		});
 		table.setContextMenu(contextMenu.getMenu());
@@ -90,8 +94,7 @@ public class EntityListView {
 	}
 
 	private void searchability() {
-		filteredList = new FilteredList<EntityListView.EntityInformation>(
-				fullList);
+		filteredList = new FilteredList<EntityInformation>(fullList);
 		SortedList<EntityInformation> sortableFilteredList = new SortedList<>(filteredList);
 		sortableFilteredList.comparatorProperty().bind(table.comparatorProperty());
 		table.setItems(sortableFilteredList);
@@ -179,63 +182,5 @@ public class EntityListView {
 
 	public TableView<EntityInformation> getTable() {
 		return table;
-	}
-
-	public static class EntityInformation {
-		private String name;
-		private String count;
-		private List<String> allFields = new ArrayList<>();
-		private List<String> ignoredFields = new ArrayList<>();
-		private boolean numeric;
-
-		public EntityInformation(String name, String count) {
-			this.name = name;
-			this.count = count;
-		}
-
-		public String getName() {
-			return name;
-		}
-
-		public String getCount() {
-			return count;
-		}
-
-		public void setName(String name) {
-			this.name = name;
-		}
-
-		public void setCount(String count) {
-			this.count = count;
-		}
-
-		public List<String> getAllFields() {
-			return allFields;
-		}
-
-		public List<String> getIgnorables() {
-			return ignoredFields;
-		}
-
-		public void setAllFields(List<String> allFields) {
-			this.allFields = allFields;
-		}
-
-		public void setIgnoredFields(List<String> ignoredFields) {
-			this.ignoredFields = ignoredFields;
-		}
-
-		public void setNumeric(boolean is) {
-			this.numeric = is;
-		}
-
-		public boolean isNumeric() {
-			return numeric;
-		}
-
-		@Override
-		public String toString() {
-			return name + " " + count;
-		}
 	}
 }
