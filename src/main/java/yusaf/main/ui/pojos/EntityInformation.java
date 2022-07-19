@@ -8,6 +8,7 @@ public class EntityInformation {
 	private String count;
 	private List<String> allFields = new ArrayList<>();
 	private List<String> ignoredFields = new ArrayList<>();
+	private List<String> keys = new ArrayList<>();
 	private boolean numeric;
 
 	public EntityInformation(String name, String count) {
@@ -39,12 +40,20 @@ public class EntityInformation {
 		return ignoredFields;
 	}
 
+	public List<String> getKeys() {
+		return keys;
+	}
+
 	public void setAllFields(List<String> allFields) {
 		this.allFields = allFields;
 	}
 
 	public void setIgnoredFields(List<String> ignoredFields) {
 		this.ignoredFields = ignoredFields;
+	}
+
+	public void setKeys(List<String> keys) {
+		this.keys = keys;
 	}
 
 	public void setNumeric(boolean is) {

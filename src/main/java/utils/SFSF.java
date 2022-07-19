@@ -61,50 +61,40 @@ public class SFSF {
 	}
 
 	public String getEntityRecords(String entity) {
-		try {
-			return getEntityRecords(entity, 2, 0, null, null);
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-		}
-		return null;
+		return getEntityRecords(entity, 2, 0, null, null);
 	}
 
 	public String getEntityRecords(String entity, int top, int skip) {
-		try {
-			return getEntityRecords(entity, top, skip, null, null);
-		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
-		}
-		return null;
+		return getEntityRecords(entity, top, skip, null, null);
 	}
 
 	public String getEntityRecords(String entity, int top, int skip, String select) {
+		return getEntityRecords(entity, top, skip, select, null);
+	}
+
+	public String getEntityRecords(String entity, int top, int skip, String select, String filter) {
 		try {
-			return getEntityRecords(entity, top, skip, select, null);
+			// Always use inlineCount. This way we don't need to track '?' in URI string.
+			String url = config.getBaseUrl() + "/" + entity;
+			url += "?$inlinecount=allpages";
+
+			if (top > 0)
+				url += "&$top=" + top;
+			if (skip > 0)
+				url += "&$skip=" + skip;
+			if (filter != null && !filter.isEmpty())
+				url += "&$filter=" + URLEncoder.encode(filter, "UTF-8");
+			if (select != null && !select.isEmpty())
+				url += "&$select=" + select;
+
+			// Also using fromDate and toDate to also get all effective dated entities. (This can be made configurable)
+			url += "&fromDate=1900-01-01&toDate=9999-12-31";
+
+			return readJson(url);
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
 		return null;
-	}
-
-	public String getEntityRecords(String entity, int top, int skip, String select, String filter) throws UnsupportedEncodingException {
-		// Always use inlineCount. This way we don't need to track '?' in URI string.
-		String url = config.getBaseUrl() + "/" + entity;
-		url += "?$inlinecount=allpages";
-
-		if (top > 0)
-			url += "&$top=" + top;
-		if (skip > 0)
-			url += "&$skip=" + skip;
-		if (filter != null && !filter.isEmpty())
-			url += "&$filter=" + URLEncoder.encode(filter, "UTF-8");
-		if (select != null && !select.isEmpty())
-			url += "&$select=" + select;
-
-		// Also using fromDate and toDate to also get all effective dated entities. (This can be made configurable)
-		url += "&fromDate=1900-01-01&toDate=9999-12-31";
-
-		return readJson(url);
 	}
 
 	public String getEntityMetadata(String entity) {
@@ -204,10 +194,10 @@ public class SFSF {
 	}
 
 	/**
-	 * 
+	 * Gets response with inlinecount and stored it in 3rd index of inlinecount array.
 	 * 
 	 * @param response
-	 * @param inlineCount An integer array of size 1.
+	 * @param inlineCount An integer array of size 3.
 	 * @return
 	 */
 	@SuppressWarnings("unchecked")
@@ -226,7 +216,7 @@ public class SFSF {
 			return n;
 		}).collect(Collectors.toList());
 		try {
-			inlineCount[0] = Integer.valueOf(responseMap.get("d").get("__count").toString());
+			inlineCount[2] = Integer.valueOf(responseMap.get("d").get("__count").toString());
 		} catch (Exception e) {
 			System.err.println("Unable to parse " + responseMap.get("d").get("__count"));
 		}

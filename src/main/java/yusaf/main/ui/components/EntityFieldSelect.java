@@ -19,6 +19,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import yusaf.main.ui.pojos.EntityInformation;
 
 public class EntityFieldSelect {
 	private Stage window;
@@ -27,59 +28,28 @@ public class EntityFieldSelect {
 	private List<String> initIgnoredItems;
 	private List<String> initAllFields;
 	private ProgressBar progressBar = new ProgressBar();
+	private EntityInformation information;
+	private TableView<EntityFieldSelectItem> table;
 
 	public ProgressBar getProgressBar() {
 		return progressBar;
 	}
 
-	public EntityFieldSelect() {
+	public EntityFieldSelect(EntityInformation information) {
 		dataList = FXCollections.observableArrayList();
+		this.information = information;
 	}
 
+	/**
+	 * Call this method on {@code JavaFX - Thread}
+	 */
 	public void render() {
-		Platform.runLater(() -> {
-			window = new Stage();
-			window.setMinHeight(500);
-			window.setMinWidth(500);
-		});
-	}
-
-	public void show() {
-		window.centerOnScreen();
-		window.show();
-	}
-
-	public void renderAndShow() {
-		Platform.runLater(() -> {
-			window = new Stage();
-			window.setMinHeight(500);
-			window.setMinWidth(500);
-			window.centerOnScreen();
-			window.show();
-		});
-	}
-
-	public void populateData(List<String> fields) {
-		initAllFields = fields;
-		if (initIgnoredItems == null) {
-			initAllFields.forEach(field -> {
-				EntityFieldSelectItem item = new EntityFieldSelectItem(field, true);
-				dataList.add(item);
-			});
-		} else {
-			initAllFields.forEach(field -> {
-				boolean isAlreadyIgnored = initIgnoredItems.stream().filter(f -> f.equals(field)).count() > 0;
-				EntityFieldSelectItem item = new EntityFieldSelectItem(field, !isAlreadyIgnored);
-				dataList.add(item);
-			});
-		}
-
 		Button selectAll = new Button("Select All");
 		Button clearAll = new Button("Clear All");
 		Button saveButton = new Button("Save");
 		Button cancelButton = new Button("Cancel");
 
-		TableView<EntityFieldSelectItem> table = new TableView<>();
+		table = new TableView<>();
 		TableColumn<EntityFieldSelectItem, Boolean> checkColumn = new TableColumn<>("Fetchable");
 		TableColumn<EntityFieldSelectItem, String> nameColumn = new TableColumn<>("Field Name");
 
@@ -89,11 +59,11 @@ public class EntityFieldSelect {
 
 		nameColumn.setCellValueFactory(new PropertyValueFactory<>("fieldName"));
 		nameColumn.setEditable(false);
+		// Make checkColumn non-editable if the field is a key, or simply remove key fields from dataList
 
 		table.setEditable(true);
 		table.getColumns().add(checkColumn);
 		table.getColumns().add(nameColumn);
-		table.setItems(dataList);
 
 		selectAll.setOnAction((e) -> {
 			table.getItems().forEach(item -> {
@@ -126,8 +96,58 @@ public class EntityFieldSelect {
 		HBox footer = new HBox(saveButton, cancelButton, progressBar);
 		VBox box = new VBox(buttons, table, footer);
 
+		window = new Stage();
+		window.setMinHeight(500);
+		window.setMinWidth(500);
+
 		Scene scene = new Scene(box);
 		window.setScene(scene);
+	}
+
+	public void show(boolean runOnFX) {
+		if (runOnFX) {
+			Platform.runLater(() -> {
+				window.centerOnScreen();
+				window.show();
+			});
+		} else {
+			window.centerOnScreen();
+			window.show();
+		}
+	}
+
+	/**
+	 * Call this method on a thread other than {@code JavaFX - Thread}, this will automatically run rendering and
+	 */
+	public void renderAndShow() {
+		Platform.runLater(() -> {
+			render();
+			window.centerOnScreen();
+			window.show();
+		});
+	}
+
+	public void populateData(List<String> fields) {
+		initAllFields = fields;
+		if (initIgnoredItems == null) {
+			initAllFields.forEach(field -> {
+				boolean isKey = information.getKeys().stream().filter(p -> p.equals(field)).count() > 0;
+				EntityFieldSelectItem item = new EntityFieldSelectItem(field, true);
+				if (!isKey) {
+					dataList.add(item);
+				}
+			});
+		} else {
+			initAllFields.forEach(field -> {
+				boolean isAlreadyIgnored = initIgnoredItems.stream().filter(f -> f.equals(field)).count() > 0;
+				boolean isKey = information.getKeys().stream().filter(p -> p.equals(field)).count() > 0;
+				EntityFieldSelectItem item = new EntityFieldSelectItem(field, !isAlreadyIgnored);
+				if (!isKey) {
+					dataList.add(item);
+				}
+			});
+		}
+		table.setItems(dataList);
 	}
 
 	public void setIgnoredItems(List<String> ignorables) {
@@ -180,4 +200,5 @@ public class EntityFieldSelect {
 			return fieldName;
 		}
 	}
+
 }

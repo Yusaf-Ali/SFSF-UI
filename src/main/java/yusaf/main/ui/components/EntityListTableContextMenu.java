@@ -31,27 +31,35 @@ public class EntityListTableContextMenu {
 			EntityInformation s = view.getTable().getSelectionModel().getSelectedItem();
 			if (s == null)
 				return;
+			// Avoid calling success factors for metadata if we already have all fields.
 			if (s.getAllFields().size() > 0) {
 				Platform.runLater(() -> {
-					EntityFieldSelect popup = new EntityFieldSelect();
-					popup.renderAndShow();
-					popup.populateData(s.getAllFields());
+					EntityFieldSelect popup = new EntityFieldSelect(s);
+					ProgressBar pb = popup.getProgressBar();
+					pb.setProgress(0);
+					popup.render();
+					pb.setProgress(0.2);
+					popup.show(false);
+					pb.setProgress(0.3);
 					popup.setIgnoredItems(s.getIgnorables());
+					popup.populateData(s.getAllFields());
+					pb.setProgress(0.7);
 					popup.setSaveAction(() -> {
 						s.setAllFields(s.getAllFields());
 						s.setIgnoredFields(popup.getIgnoredItems());
 						return null;
 					});
+					pb.setProgress(1);
 				});
 				return;
 			}
+
+			EntityFieldSelect popup = new EntityFieldSelect(s);
+			popup.render();
 			Thread t = new Thread() {
 				public void run() {
-					EntityFieldSelect popup = new EntityFieldSelect();
-					popup.render();
 					ProgressBar pb = popup.getProgressBar();
 					pb.setProgress(0);
-					pb.setVisible(true);
 					String data = sfsf.getEntityMetadata(s.getName());
 					pb.setProgress(0.5);
 					try {
@@ -79,10 +87,10 @@ public class EntityListTableContextMenu {
 								s.setIgnoredFields(popup.getIgnoredItems());
 								return null;
 							});
+							popup.setIgnoredItems(s.getIgnorables());
 							popup.populateData(fields);
-							popup.show();
+							popup.show(false);
 							pb.setProgress(1);
-							pb.setVisible(false);
 						});
 					} catch (SAXException | IOException | ParserConfigurationException e) {
 						e.printStackTrace();
@@ -92,12 +100,6 @@ public class EntityListTableContextMenu {
 			t.start();
 		});
 		menu.getItems().add(selectMenuItem);
-		MenuItem loadMoreItems = new MenuItem("Load more");
-		loadMoreItems.setOnAction((event) -> {
-			EntityInformation information = view.getTable().getSelectionModel().getSelectedItem();
-			if (information == null)
-				return;
-		});
 	}
 
 	public ContextMenu getMenu() {

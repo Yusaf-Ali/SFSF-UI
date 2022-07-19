@@ -47,6 +47,8 @@ public class MainFrame extends Application {
 
 		// TODO need to save selected fields in a way that it will be available after reopening the program.
 		// TODO save the data in a database to easily populate it quickly in the view.
+		// FIXME the counting of current total entities loaded without filter.
+		// currentVisible / totalLoaded / totalInServer
 	}
 
 	public static List<Thread> getThreadList() {

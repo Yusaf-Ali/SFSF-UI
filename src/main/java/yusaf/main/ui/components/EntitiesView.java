@@ -1,9 +1,16 @@
 package yusaf.main.ui.components;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
+
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -23,7 +30,6 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableColumn.CellDataFeatures;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -63,7 +69,7 @@ public class EntitiesView {
 		entityCount = new Label("0 / 0");
 		entityCount.setMaxWidth(120);
 		entityCount.setMinWidth(80);
-		entityCount.setAlignment(Pos.BASELINE_RIGHT);
+		entityCount.setAlignment(Pos.BASELINE_CENTER);
 		entityCount.setStyle("-fx-border-color: black");
 
 		filterableFieldName = new ChoiceBox<>();
@@ -132,39 +138,77 @@ public class EntitiesView {
 		return pane;
 	}
 
-	public void populateDetailTable(List<Map<String, String>> listing) {
+	public void populateDetailTable(List<Map<String, String>> listing, boolean append) {
 		if (listing != null && listing.size() > 0) {
-			System.out.println("Cleared table and added " + listing.size() + " items to it from payload.");
-			if (filteredRows != null)
-				filteredRows.getSource().clear();
-			else
-				detailTable.getItems().clear();
-			detailTable.getColumns().clear();
-			filterableFieldName.getItems().clear();
+			if (!append) {
+				if (filteredRows != null) {
+					filteredRows.getSource().clear();
+				} else {
+					detailTable.getItems().clear();
+				}
+				detailTable.getColumns().clear();
+				filterableFieldName.getItems().clear();
+			}
 
 			ObservableList<DynamicRow> rows = FXCollections.observableArrayList();
-			listing.forEach(itemRow -> {
-				DynamicRow row = new DynamicRow(itemRow);
-				rows.add(row);
-			});
+			if (append) {
+				if (filteredRows != null) {
+					rows.addAll(filteredRows.getSource());
+				} else {
+					rows.addAll(detailTable.getItems());
+				}
+			}
 
-			Callback<CellDataFeatures<DynamicRow, String>, ObservableValue<String>> callback = new Callback<>() {
-				@Override
-				public ObservableValue<String> call(CellDataFeatures<DynamicRow, String> cell) {
-					String fieldName = cell.getTableColumn().getText();
-					SimpleStringProperty property = new SimpleStringProperty(
-							cell.getValue().getFieldValues().get(fieldName));
-					return property;
+			if (append) {
+				EntityInformation entityInfo = (EntityInformation) detailTable.getUserData();
+				listing.stream().filter(newRow -> {
+					for (DynamicRow existingRow : rows) {
+						boolean matched = true;
+						for (String key : entityInfo.getKeys()) {
+							if (!existingRow.getFieldValues().get(key).equals(newRow.get(key))) {
+								// When unmatched, it means this is distinct and should be retained.
+								// Break this loop and set matched to false.
+								matched = false;
+								break;
+							}
+						}
+						// If matched == false then do not break, check next record.
+						// If matched == true then break because this record should not be included.
+						if (matched)
+							return false;
+					}
+					// If the whole loop ends, then simply return true because this record was not found.
+					return true;
+				}).forEach(itemRow -> {
+					DynamicRow row = new DynamicRow(itemRow);
+					rows.add(row);
+				});
+			} else {
+				listing.forEach(itemRow -> {
+					DynamicRow row = new DynamicRow(itemRow);
+					rows.add(row);
+				});
+			}
+
+			if (!append) {
+				Callback<CellDataFeatures<DynamicRow, String>, ObservableValue<String>> callback = new Callback<>() {
+					@Override
+					public ObservableValue<String> call(CellDataFeatures<DynamicRow, String> cell) {
+						String fieldName = cell.getTableColumn().getText();
+						SimpleStringProperty property = new SimpleStringProperty(
+								cell.getValue().getFieldValues().get(fieldName));
+						return property;
+					};
 				};
-			};
 
-			Map<String, String> firstRow = listing.get(0);
-			firstRow.keySet().forEach(fieldName -> {
-				TableColumn<DynamicRow, String> col = new TableColumn<DynamicRow, String>(fieldName);
-				col.setCellValueFactory(callback);
-				detailTable.getColumns().add(col);
-				filterableFieldName.getItems().add(fieldName);
-			});
+				Map<String, String> firstRow = listing.get(0);
+				firstRow.keySet().forEach(fieldName -> {
+					TableColumn<DynamicRow, String> col = new TableColumn<DynamicRow, String>(fieldName);
+					col.setCellValueFactory(callback);
+					detailTable.getColumns().add(col);
+					filterableFieldName.getItems().add(fieldName);
+				});
+			}
 
 			filteredRows = new FilteredList<DynamicRow>(rows);
 			SortedList<DynamicRow> sortedRows = new SortedList<>(filteredRows);
@@ -176,20 +220,26 @@ public class EntitiesView {
 			filteredRows.addListener((ListChangeListener.Change<? extends DynamicRow> list) -> {
 				updateEntityCount();
 			});
+			updateEntityCount();
+			System.out.println("Cleared table and added " + listing.size() + " items to it from payload.");
 		}
 	}
 
 	private void updateEntityCount() {
 		try {
-			String entityCountText = entityCount.getText();
-			if (entityCountText.length() > 0 && Utils.isInteger(entityCountText.split(" / ")[2])) {
-				int totalCount = Integer.parseInt(entityCountText.split(" / ")[2]);
-				int currentTotalCount = Integer.parseInt(entityCountText.split(" / ")[1]);
-				entityCount.setText(detailTable.getItems().size() + " / " + currentTotalCount + " / " + totalCount);
-			}
+			int[] countArray = (int[]) entityCount.getUserData();
+			entityCount.setText(detailTable.getItems().size() + " / " + countArray[1] + " / " + countArray[2]);
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
 		}
+	}
+
+	private void showAlertNoRecordsFetched(String entityName) {
+		Alert alert = new Alert(AlertType.WARNING);
+		alert.setTitle("Zero Fetch");
+		alert.setHeaderText(entityName);
+		alert.setContentText("There were no records in the response, if you have used a filter, try modifying it or this entity does not contain any record.");
+		alert.showAndWait();
 	}
 
 	private EventHandler<MouseEvent> detailsActions = (event) -> {
@@ -197,29 +247,15 @@ public class EntitiesView {
 			EntityInformation selected = entityList.getTable().getSelectionModel().getSelectedItem();
 			if (selected == null)
 				return;
+			EntityInformation currentEntity = (EntityInformation) detailTable.getUserData();
+			String currentEntityName = currentEntity == null ? "" : currentEntity.getName();
 
-			TextInputDialog numberOfRecords = new TextInputDialog("10");
-			numberOfRecords.setTitle("View: " + selected.getName());
-			numberOfRecords.setHeaderText("Select $top");
-			numberOfRecords.setContentText("Number must be greater than 0");
-			numberOfRecords.getEditor().textProperty().addListener((e, o, n) -> {
-				if (n.length() != 0 && (!Utils.isInteger(n) || Integer.parseInt(n) < 0)) {
-					numberOfRecords.getEditor().setText(o);
-				}
-			});
-			Optional<String> showAndWait = numberOfRecords.showAndWait();
-			int top[] = new int[] { 1 };
-			if (showAndWait.isPresent()) {
-				try {
-					top[0] = Integer.parseInt(showAndWait.get());
-					if (top[0] == 0)
-						throw new NumberFormatException("0 is not selectable");
-				} catch (NumberFormatException ex) {
-					System.err.println("Invalid input! " + ex.getMessage());
-				}
-			} else {
+			ViewEntityRecordsDialog input = new ViewEntityRecordsDialog(selected.getName(), currentEntityName);
+			input.showAndWait();
+			if (input.isCancelled() || !input.validateTopSkip() || input.getTop() == 0) {
 				return;
 			}
+
 			Thread t = new Thread() {
 				@Override
 				public void run() {
@@ -227,9 +263,40 @@ public class EntitiesView {
 
 					List<String> selectList = selected.getAllFields().stream().collect(Collectors.toList());
 					selectList.removeAll(selected.getIgnorables());
+
+					boolean success = false;
+					if (selected.getKeys().size() == 0 && selected.getAllFields().size() > 0) {
+						String metadata = entityList.getSFSF().getEntityMetadata(selected.getName());
+						try {
+							Document doc = Utils.getDocument(metadata);
+							NodeList keyTagList = doc.getElementsByTagName("Key");
+							if (keyTagList.getLength() > 0) {
+								Node keyTag = keyTagList.item(0);
+								for (int index = 0; index < keyTag.getChildNodes().getLength(); index++) {
+									Node node = keyTag.getChildNodes().item(index);
+									String keyName = node.getAttributes().getNamedItem("Name").getTextContent();
+									selected.getKeys().add(keyName);
+								}
+							}
+							success = true;
+						} catch (SAXException | IOException | ParserConfigurationException e) {
+							System.err.println(e.getMessage());
+						}
+					} else {
+						success = true;
+					}
+
+					for (int index = 0; index < selected.getKeys().size(); index++) {
+						if (!selectList.contains(selected.getKeys().get(index))) {
+							selectList.add(selected.getKeys().get(index));
+						}
+					}
 					String selects = selectList.stream().collect(Collectors.joining(","));
 
-					String response = entityList.getSFSF().getEntityRecords(selected.getName(), top[0], 0, selects);
+					if (!success)
+						return;
+					String response = entityList.getSFSF()
+							.getEntityRecords(selected.getName(), input.getTop(), input.getSkip(), selects, input.getFilter());
 					if (response == null || response.equals("null") || response.startsWith("error:")) {
 						System.err.println("Error response for " + selected.getName());
 						String error = response == null ? "error:Response is null" : response;
@@ -237,23 +304,35 @@ public class EntitiesView {
 
 						Platform.runLater(() -> {
 							Alert alertDialog = new Alert(AlertType.ERROR, error.split("error:")[1]);
-							alertDialog.setHeaderText("There was error getting resposne from success factors!");
+							alertDialog.setHeaderText("There was error getting response from success factors!");
 							alertDialog.showAndWait();
 						});
 
 						return;
 					}
 
-					int[] inlinecount = new int[] { 0 };
+					int[] inlinecount = new int[] { 0, 0, 0 };
 					List<Map<String, String>> list = SFSF.getResultsFromJsonInlineCount(response, inlinecount);
-					System.out.println(inlinecount[0]);
-					Platform.runLater(() -> {
-						entityCount.setText(list.size() + " / " + list.size() + " / " + inlinecount[0]);
-						populateDetailTable(list);
-					});
+					if (list.size() > 0) {
+						System.out.println("Inline count: " + inlinecount[2]);
+						Platform.runLater(() -> {
+							if (input.shouldAppend()) {
+								inlinecount[1] += list.size();
+							} else {
+								inlinecount[1] = list.size();
+							}
+							inlinecount[0] = inlinecount[1];
+							entityCount.setUserData(inlinecount);
+							detailTable.setUserData(selected);
+							populateDetailTable(list, input.shouldAppend());
+						});
+					} else {
+						showAlertNoRecordsFetched(selected.getName());
+					}
 				}
 			};
 			t.start();
 		}
 	};
+
 }
